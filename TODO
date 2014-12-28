@@ -1,0 +1,10 @@
+TODO list:
+ - implement a simple ip protocol.
+    + init a broadcast address for interface.
+ - implement a simple routing mechanism.
+    + locate routing routines during packet travel.
+ - implement a simple icmp protocol.
+ - implement a simple udp protocol.
+ - implement a simple tcp protocol.
+ - design a library for userspace application.
+ - implement mechanisms to handle a large set of fds ( counted in millions). 
