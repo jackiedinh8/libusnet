@@ -208,8 +208,8 @@ rtrequest(
          Free(rt);
          senderr(ENOBUFS);
       }
+
       ndst = rt_key(rt);
-      dump_payload_only((char*)ndst, sizeof(*ndst));
       if (netmask) {
          rt_maskedcopy(dst, ndst, netmask);
       } else
@@ -470,12 +470,13 @@ rtinit( struct ifaddr *ifa, int cmd, int flags)
    struct rtentry *nrt = 0;
    int error;
 
+#ifdef DUMP_PAYLOAD
    DEBUG("rtinit: start, flags=%d", flags);
-   dst = flags & RTF_HOST ? ifa->ifa_dstaddr : ifa->ifa_addr;
-   
-   dump_payload_only((char*)dst, sizeof(*dst));
-   dump_payload_only((char*)ifa->ifa_addr, sizeof(*dst));
+   dump_buffer((char*)dst, sizeof(*dst), "dst");
+   dump_buffer((char*)ifa->ifa_addr, sizeof(*dst), "adr");
+#endif
 
+   dst = flags & RTF_HOST ? ifa->ifa_dstaddr : ifa->ifa_addr;
    if (cmd == RTM_DELETE) {
       if ((flags & RTF_HOST) == 0 && ifa->ifa_netmask) {
          deldst = (struct usn_sockaddr *)usn_get_buf(0, sizeof(*dst));
@@ -493,7 +494,11 @@ rtinit( struct ifaddr *ifa, int cmd, int flags)
          }   
       }   
    }   
-   dump_payload_only((char*)ifa->ifa_netmask, sizeof(*ifa->ifa_netmask));
+
+#ifdef DUMP_PAYLOAD
+   dump_buffer((char*)ifa->ifa_netmask, sizeof(*ifa->ifa_netmask), "msk");
+#endif
+
    error = rtrequest(cmd, dst, ifa->ifa_addr, ifa->ifa_netmask,
          flags | ifa->ifa_flags, &nrt);
    if (deldst) 
@@ -538,7 +543,7 @@ rtinit( struct ifaddr *ifa, int cmd, int flags)
 }
 
 void
-route_init()
+usnet_route_init()
 {
    //int error; (void)error;
 

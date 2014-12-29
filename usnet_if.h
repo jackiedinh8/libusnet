@@ -109,7 +109,7 @@ extern struct ifnet     *g_ifnet;
  * Initialize a list of addresses for ether interface.
  */
 void
-init_network();
+usnet_network_init();
 
 /*
  * Locate an interface based on a complete address.

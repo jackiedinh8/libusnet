@@ -121,8 +121,11 @@ eth_input(u_char *buf, int len)
 		// if_ierrors++;
 		return;
 	}
+
+#ifdef DUMP_PAYLOAD
    DEBUG("eth_input: dump info, ptr=%p, len=%d", buf, len);
-   dump_payload_only((char*)buf,len);
+   dump_buffer((char*)buf,len,"frame");
+#endif
 
 	flags = 0;
 	if (bcmp((caddr_t)g_etherbroadcastaddr,
@@ -152,10 +155,11 @@ eth_input(u_char *buf, int len)
    m->head += sizeof(ether_header_t);
    m->mlen -= sizeof(ether_header_t);
 
+#ifdef DUMP_PAYLOAD
 	DEBUG("eth_input: dump info: ptr=%p, len=%d\n", m->head, m->mlen);
    dump_buffer((char*)m->head, m->mlen, "eth_head");
+#endif
 
-   DEBUG("ether header info, ether_type=%04X", ntohs((u_short)et->ether_type));
 	ether_type = ntohs((u_short)et->ether_type);
 	switch(ether_type){
       case ETHERTYPE_IP: /* IP protocol */
@@ -184,14 +188,12 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
    u_char edst[6];
    usn_mbuf_t *m = m0;
    struct rtentry *rt;
-   //usn_mbuf_t *mcopy = (usn_mbuf_t *)0;
    ether_header_t *eh;
-   //int off;
-   //int len = m->mlen;
 
-   //struct arpcom *ac = (struct arpcom *)g_ifnet;
+#ifdef DUMP_PAYLOAD
    DEBUG("eth_output: dump info, ptr=%p, len=%d", m->head, m->mlen);
-   dump_payload_only((char*)m->head, m->mlen);
+   dump_buffer((char*)m->head, m->mlen,"frm");
+#endif
 
    // XXX g_ifnet could be passed as argument if we implement multi interfaces.
    if ((g_ifnet->if_flags & (USN_IFF_UP|USN_IFF_RUNNING)) != (USN_IFF_UP|USN_IFF_RUNNING))
@@ -266,10 +268,11 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
       DEBUG("eth_output: empty data");
       senderr(ENOBUFS);
    }
-
+#ifdef DUMP_PAYLOAD
    DEBUG("eth_output: prepend eth header, ptr=%p, len=%d, type=%d", 
          m->head, m->mlen, type);
-   dump_payload_only((char*)m->head, m->mlen);
+   dump_buffer((char*)m->head, m->mlen, "frm");
+#endif
 
    eh = mtod(m, ether_header_t *);
    type = htons((u_short)type);
@@ -282,7 +285,7 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
     * not yet active.
     */
    //return send_mbuf(m);
-   return send_packet(m);
+   return usnet_send_frame(m);
 bad:
    if (m) 
       usn_free_mbuf(m);

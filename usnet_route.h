@@ -186,14 +186,11 @@ rtredirect(
    struct usn_sockaddr *src,
    struct rtentry **rtp);
 
-
-void
-route_init();
-
 int
 rtinit( struct ifaddr *ifa, int cmd, int flags);
 
-
+void
+usnet_route_init();
 
 
 

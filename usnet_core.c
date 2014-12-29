@@ -30,20 +30,14 @@ struct glob_arg g_arg;
 
 struct ipq g_ipq;
 
-void 
-print_msg(const char *msg, int len, const char *text)
-{
-  int i, j;
-  char tmp[4], buf[4086]={0};
-  int print_len = 0;  
-  print_len = len < 18 ? len : 18; 
+static int do_abort = 0;
 
-  for(i=0,j=1; i<print_len; i++,j++) {
-    sprintf(tmp, "%02X", (unsigned char)msg[i]);
-    strcat(buf, tmp);
-    strcat(buf, " ");
-  }    
-  printf("print_msg(%s): str=%s\n", text, buf);
+static void
+sigint_h(int sig)
+{
+	(void)sig;  /* UNUSED */
+	do_abort = 1;
+	signal(SIGINT, SIG_DFL);
 }
 
 struct nm_desc*
@@ -54,12 +48,12 @@ usnet_init( struct nm_desc *gg_nmd, const char *dev_name, u_int flags)
    struct netmap_if   *nifp = NULL;
    struct netmap_ring *txr, *rxr;
 
-   DEBUG("open dev: %s", dev_name);
+   signal(SIGINT, sigint_h);
+
    bzero(&nmr, sizeof(nmr));
    strcpy(nmr.nr_name, dev_name);
 
-   //nmr.nr_version = NETMAP_API;
-   //nmr.nr_ringid = 0;
+   // XXX: which netmap flags?
    //nmr.nr_flags = NR_REG_ALL_NIC; //| flags;
 
    printf("nm_open: %s\n", nmr.nr_name);
@@ -91,26 +85,17 @@ usnet_init( struct nm_desc *gg_nmd, const char *dev_name, u_int flags)
    memset(&g_ipq, 0, sizeof(g_ipq));
 
    usnet_init_internal();
+   usnet_route_init();
+   usnet_network_init();
+   usnet_udp_init();
+   usnet_ipv4_init();
 
-   route_init();
-
-   init_network();
-
-   udp_init();
-
-   init_ipv4();
-
-
-   DEBUG("usnet_init: done");
    return nmd;
 }
 
 int
 usnet_init_internal()
 {
-
-   DEBUG("usnet_init_internal: start");
-
    g_arp_cache = (arp_cache_t*)malloc(sizeof(arp_cache_t));
    memset(g_arp_cache, 0, sizeof(arp_cache_t));
 
@@ -130,16 +115,9 @@ usnet_init_internal()
    g_slab_pool = (usn_slab_pool_t*)g_shm.addr;
    usn_slab_init(g_slab_pool,&g_shm);
 
-   DEBUG("usnet_init_internal: done");
    return 0;
 }
 
-void
-usnet_dispatch()
-{
-   // XXX while loop goes here.
-   return;
-}
 
 // ip stack handling
 void
@@ -161,13 +139,13 @@ usnet_register_tcp_handler(int fd, tcp_handler_cb cb)
 }
 
 int 
-usnet_read(int fd, u_char* buff, u_int len)
+usnet_recv(int fd, u_char* buff, u_int len)
 {
    return 0;
 }
 
 int 
-usnet_write(int fd, u_char* buff, u_int len)
+usnet_send(int fd, u_char* buff, u_int len)
 {
    return 0;
 }
@@ -209,66 +187,12 @@ dump_buffer(char *p, int len, const char *prefix)
    }
 }
 
-void
-dump_payload_only(char *p, int len)
-{
-   char buf[128];
-   int i, j, i0;
-
-   return;
-
-   /* get the length in ASCII of the length of the packet. */
-   
-   /* hexdump routine */
-   for (i = 0; i < len; ) {
-      memset(buf, sizeof(buf), ' ');
-      sprintf(buf, "%5d: ", i);
-      i0 = i;
-      for (j=0; j < 16 && i < len; i++, j++)
-         sprintf(buf+7+j*3, "%02x ", (uint8_t)(p[i]));
-      i = i0;
-      for (j=0; j < 16 && i < len; i++, j++)
-         sprintf(buf+7+j + 48, "%c",
-            isprint(p[i]) ? p[i] : '.');
-      printf("%s\n", buf);
-   }
-}
-
-void
-dump_payload(u_char *p, int len, struct netmap_ring *ring, int cur)
-{
-   char buf[128];
-   int i, j, i0;
-
-   return;
-
-   /* get the length in ASCII of the length of the packet. */
-
-   printf("ring %p[%p] cur %5d [buf %6d flags 0x%04x len %5d]\n",
-      ring, p, cur, ring->slot[cur].buf_idx,
-      ring->slot[cur].flags, len);
-
-   /* hexdump routine */
-   for (i = 0; i < len; ) {
-      memset(buf, sizeof(buf), ' ');
-      sprintf(buf, "%5d: ", i);
-      i0 = i;
-      for (j=0; j < 16 && i < len; i++, j++)
-         sprintf(buf+7+j*3, "%02x ", (uint8_t)(p[i]));
-      i = i0;
-      for (j=0; j < 16 && i < len; i++, j++)
-         sprintf(buf+7+j + 48, "%c",
-            isprint(p[i]) ? p[i] : '.');
-      printf("%s\n", buf);
-   }
-}
-
 void show_help()
 {
     DEBUG("desc: stack -i interface -a address -n netmask -g gateway -m macaddress");
 }
 int
-usn_get_options(int argc, char* const *argv)
+usnet_get_options(int argc, char* const *argv)
 {
     char     *p;  
     int         i;   
@@ -378,10 +302,15 @@ usn_get_options(int argc, char* const *argv)
             continue;
       }
    }
+   DEBUG("interface:  %s", g_interface);
+   DEBUG("address:    %s", g_address);
+   DEBUG("netmask:    %s", g_netmask);
+   DEBUG("gateway:    %s", g_gateway);
+   DEBUG("macaddress: %s", g_macaddress);
    return 0;
 }
 
-int send_packet(usn_mbuf_t *m)
+int usnet_send_frame(usn_mbuf_t *m)
 {
    struct pollfd       fds;
    struct netmap_if    *nifp;
@@ -474,7 +403,8 @@ fail:
    return 0;
 } 
 
-void netmap_flush()
+void 
+usnet_netmap_flush()
 {
    int i;
    ioctl(g_nmd->fd, NIOCTXSYNC, NULL);
@@ -643,15 +573,6 @@ setaffinity( int i)
    return 0;
 }
 
-static int do_abort = 0;
-
-static void
-sigint_h(int sig)
-{
-	(void)sig;  /* UNUSED */
-	do_abort = 1;
-	signal(SIGINT, SIG_DFL);
-}
 
 static int 
 receive_packets(struct netmap_ring *ring, u_int limit, int dump)
@@ -673,9 +594,6 @@ receive_packets(struct netmap_ring *ring, u_int limit, int dump)
       slot = &ring->slot[cur];
       p = (u_char*)NETMAP_BUF(ring, slot->buf_idx);
 
-      if (dump)
-         dump_payload(p, slot->len, ring, cur);
-
       eth_input(p, slot->len);
 
       cur = nm_ring_next(ring, cur);
@@ -688,34 +606,23 @@ receive_packets(struct netmap_ring *ring, u_int limit, int dump)
 int
 usnet_setup(int argc, char *argv[])
 {
-   struct netmap_if   *nifp;
-   struct netmap_ring *txring, *rxring;
    struct nm_desc     *nmd;
-   struct pollfd       fds;
    char               *p;
    int                 ret;
 
    (void)argc;
    (void)argv;
-   (void)nifp;
    (void)p;
-   (void)txring;
    (void)nmd;
 
    setaffinity(0);
 
-   ret = usn_get_options(argc, argv);
+   ret = usnet_get_options(argc, argv);
    if ( ret < 0 ) {
       show_help();
       exit(0);
    }
 
-   DEBUG("interface:  %s", g_interface);
-   DEBUG("address:    %s", g_address);
-   DEBUG("netmask:    %s", g_netmask);
-   DEBUG("gateway:    %s", g_gateway);
-   DEBUG("macaddress: %s", g_macaddress);
-   //g_nmd = usnet_init(g_nmd, "netmap:em1", 0);
    g_nmd = usnet_init(g_nmd, (char*)g_interface, 0);
 
   if (1) {
@@ -737,13 +644,19 @@ usnet_setup(int argc, char *argv[])
              (void *)((char *)ring - (char *)nifp), ring->num_slots);
       }    
    }
+   return 0;
+}
+void
+usnet_dispatch()
+{
+   struct netmap_if   *nifp;
+   struct pollfd       fds;
+   struct netmap_ring *rxring;
+   int                 ret;
 
    nifp = g_nmd->nifp;
    fds.fd = g_nmd->fd;
 
-
-   signal(SIGINT, sigint_h);
-   // XXX: dispatch funtion of libusnet
    while(!do_abort) {
        //fds.events = POLLIN | POLLOUT;
        fds.events = POLLIN;
@@ -807,6 +720,6 @@ usnet_setup(int argc, char *argv[])
        }
    }
    nm_close(g_nmd);
-   return 0;
+   return;
 }
 

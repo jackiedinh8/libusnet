@@ -172,7 +172,7 @@ struct ipoption {
 extern u_short  g_ip_id;            /* ip packet ctr, for ids */
 
 void 
-init_ipv4();
+usnet_ipv4_init();
 
 unsigned short 
 in_cksum(usn_mbuf_t *m, int len);

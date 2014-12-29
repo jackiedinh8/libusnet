@@ -70,12 +70,16 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    struct route iproute;
    struct usn_sockaddr_in *dst;
    struct in_ifaddr *ia; 
-   
+  
+#ifdef DUMP_PAYLOAD 
 	DEBUG("ipv4_output: dump info: ptr=%p, len=%d\n", m->head, m->mlen);
-   dump_payload_only((char*)m->head, m->mlen);
+   dump_buffer((char*)m->head, m->mlen, "ip4");
+#endif
 
-   if ( m == NULL )
-      DEBUG("m is NULL");
+   if ( m == NULL ) {
+      ERROR("m is NULL");
+      return -1;
+   }
 
    if (opt) {
       DEBUG("insert ip options");
@@ -201,16 +205,23 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    /*
     * If small enough for interface, can just send directly.
     */
-   dump_buffer((char*)m->head, m->mlen, "ip__");
+#ifdef DUMP_PAYLOAD
+   dump_buffer((char*)m->head, m->mlen, "ip4");
+#endif
+
    DEBUG("check mtu, ip_len=%d, mtu=%d", htons((u_short)ip->ip_len), ifp->if_mtu);
    if (htons((u_short)ip->ip_len) <= ifp->if_mtu) {
       //ip->ip_len = htons((u_short)ip->ip_len);
       //ip->ip_off = htons((u_short)ip->ip_off);
       ip->ip_sum = 0;
       ip->ip_sum = in_cksum(m, hlen);
+
+#ifdef DUMP_PAYLOAD
       DEBUG("send packet out, ip_len=%d, ip_off=%d, ip_sum=%d", 
              ip->ip_len, ip->ip_off, ip->ip_sum);
-      dump_payload_only((char*)dst, *((char*)dst));
+      dump_buffer((char*)dst, *((char*)dst),"ip4");
+#endif
+
       error = eth_output( m, (struct usn_sockaddr *)dst, ro->ro_rt);
       goto done;
    }
@@ -295,8 +306,10 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     */
    m = m0;
    m_adj(m, hlen + firstlen - (u_short)ip->ip_len);
-   //m->m_pkthdr.len = hlen + firstlen;
+
+   // FIXME: do we need?
    //ip->ip_len = htons((u_short)m->m_pkthdr.len);
+
    ip->ip_off = htons((u_short)(ip->ip_off | IP_MF));
    ip->ip_sum = 0;
    ip->ip_sum = in_cksum(m, hlen);

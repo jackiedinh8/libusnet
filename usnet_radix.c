@@ -203,9 +203,11 @@ int print_radix_tree(struct usn_radix_node* t)
 
       print_duped_key(t->rn_dupedkey);
    } else {
+#ifdef DUMP_PAYLOAD
       DEBUG("node: ptr=%p, rn_b=%d, rn_bmask=%u, rn_flags=%d, rn_off=%x",
            t, t->rn_b, (u_char)t->rn_bmask, t->rn_flags, t->rn_off);
-      dump_payload_only((char*)t, sizeof(*t));
+      dump_buffer((char*)t, sizeof(*t), "rdx");
+#endif
       print_radix_mask(t->rn_mklist);
       print_radix_tree(t->rn_l);
       print_radix_tree(t->rn_r);
@@ -243,7 +245,6 @@ rn1_match( void *v_arg, struct usn_radix_node_head *head)
 	int off = t->rn_off, vlen = *(u_char *)cp, matched_off;
 	int test, b, rn_b;
 
-   DEBUG("match a route");
    //print_radix_tree(t);
 
 	/*
@@ -269,12 +270,17 @@ rn1_match( void *v_arg, struct usn_radix_node_head *head)
 	 * are probably the most common case...
 	 */
 	if (t->rn_mask) {
+#ifdef DUMP_PAYLOAD
       DEBUG("dump rn_mask");
-      dump_payload_only(t->rn_mask, *((u_char*)t->rn_mask));
+      dump_buffer(t->rn_mask, *((u_char*)t->rn_mask), "rdx");
+#endif
 		vlen = *(u_char *)t->rn_mask;
    }
+
+#ifdef DUMP_PAYLOAD
    DEBUG("dump rn_key");
-   dump_payload_only(t->rn_key, g_max_keylen);// *((u_char*)t->rn_key));
+   dump_buffer(t->rn_key, g_max_keylen, "rdx");
+#endif
 
 	cp += off; cp2 = t->rn_key + off; cplim = v + vlen;
 	for (; cp < cplim; cp++, cp2++)

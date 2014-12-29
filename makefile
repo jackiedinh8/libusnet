@@ -44,5 +44,5 @@ install:
 	$(MD5) $(BIN) ./run/bin/$(BIN)
 
 clean:
-	rm -rfv $(OBJS) $(BIN)
+	rm -rfv $(OBJS) $(BIN) stack
 

@@ -15,7 +15,7 @@ struct inpcb   *g_udp_last_inpcb;
 struct usn_sockaddr_in g_udp_in = { sizeof(g_udp_in), AF_INET };
 
 void 
-udp_init()
+usnet_udp_init()
 {
    DEBUG("udp_init: start");
    g_udb.inp_next = g_udb.inp_prev = &g_udb;
@@ -318,7 +318,7 @@ test:
    test_netmap(m);
 #endif
 
-#define TEST_UDP
+//#define TEST_UDP
 #ifdef TEST_UDP
 //dotest: 
    int i;
@@ -348,7 +348,7 @@ test:
    printf("total time: %lu seconds %lu microseconds, cnt=%d \n", 
            dtime.tv_sec, dtime.tv_usec, cnt);
 
-   netmap_flush();
+   usnet_netmap_flush();
    sleep(1);
    //goto dotest;
 #endif

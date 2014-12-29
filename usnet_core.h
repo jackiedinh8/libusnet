@@ -89,20 +89,21 @@ typedef void (*accept_handler_cb)(int fd);
 typedef void (*tcp_handler_cb)(int fd);
 typedef void (*udp_handler_cb)(int fd);
 
-void
-usnet_tcp_listen(u_short port, accept_handler_cb cb);
-
-void
-usnet_udp_listen(u_short port, udp_handler_cb cb);
-
-void
-usnet_register_tcp_handler(int fd, tcp_handler_cb cb);
+// common functionality
+int 
+usnet_socket();
 
 int 
-usnet_read(int fd, u_char* buff, u_int len);
+usnet_bind();
 
 int 
-usnet_write(int fd, u_char* buff, u_int len);
+usnet_connect();
+
+int 
+usnet_recv(int fd, u_char* buff, u_int len);
+
+int 
+usnet_send(int fd, u_char* buff, u_int len);
 
 size_t
 usnet_get_length(int fd);
@@ -110,32 +111,37 @@ usnet_get_length(int fd);
 int 
 usnet_drain(int fd, size_t len);
 
+// udp functionality
+void
+usnet_udp_listen(u_short port, udp_handler_cb cb);
+
+
+// tcp functionality
+void
+usnet_tcp_listen(u_short port, accept_handler_cb cb);
+
+void
+usnet_register_tcp_handler(int fd, tcp_handler_cb cb);
+
+// eth functionality
+int 
+usnet_send_frame(usn_mbuf_t *m);
+
 
 // Auxiliary functions
-
-void 
-print_msg(const char *msg, int len, const char *text);
-
-void
-dump_payload(u_char *p, int len, struct netmap_ring *ring, int cur);
-
-void
-dump_payload_only(char *p, int len);
-
+//#define DUMP_PAYLOAD
 void
 dump_buffer(char *p, int len, const char *prefix);
 
 int
-usn_get_options(int argc, char* const *argv);
+usnet_get_options(int argc, char* const *argv);
 
 void 
 show_help();
 
-int 
-send_packet(usn_mbuf_t *m);
-
+// netmap-related functionality
 void
-netmap_flush();
+usnet_netmap_flush();
 
 
 void 

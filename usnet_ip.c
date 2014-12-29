@@ -24,7 +24,7 @@ int g_ipforwarding;// = IPFORWARDING;
 u_short  g_ip_id;            /* ip packet ctr, for ids */
 
 void 
-init_ipv4()
+usnet_ipv4_init()
 {
    DEBUG("init_ipv4: start");
    g_ip_id = 1;
@@ -772,8 +772,10 @@ ipv4_input(usn_mbuf_t* m)
    u_short             hlen;
    struct in_ifaddr   *ia;
 
+#ifdef DUMP_PAYLOAD
 	DEBUG("ipv4_input: dump info: ptr=%p, len=%d\n", m->head, m->mlen);
-   dump_payload_only((char*)m->head, m->mlen);
+   dump_buffer((char*)m->head, m->mlen,"ip4");
+#endif
 
    // 1. Verification of incoming packets
 	if ( m->mlen < sizeof(usn_ip_t) ) {

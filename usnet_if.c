@@ -63,7 +63,7 @@ int get_mac_addr(char* mac_str)
 }
 
 void
-init_network()
+usnet_network_init()
 {
    size_t socksize, ifasize;
    int    namelen, unitlen, masklen;

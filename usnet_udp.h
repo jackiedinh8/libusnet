@@ -82,7 +82,7 @@ struct	udpstat {
 extern struct inpcb g_udb;
 
 void
-udp_init();
+usnet_udp_init();
 
 int
 udp_output(struct inpcb *inp, usn_mbuf_t *m, usn_mbuf_t *addr, usn_mbuf_t  *control);
