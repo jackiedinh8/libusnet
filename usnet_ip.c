@@ -287,7 +287,7 @@ ip_forward(usn_mbuf_t *m, int srcrt)
     * we need to generate an ICMP message to the src.
     */
 #define imin(x,y)  ((x) > (y) ? (y) : (x))
-   mcopy = mbuf_copy(m, 0, imin((int)ip->ip_len, 64));
+   mcopy = usn_mbuf_copy(m, 0, imin((int)ip->ip_len, 64));
 
    /*
     * If forwarding packet using same interface that it came in on,
@@ -646,7 +646,7 @@ found:
 
       fp = (struct ipq *)(t->head);
 
-      insert_ipq(fp);
+      usn_insert_ipq(fp);
 
       fp->ipq_ttl = IPFRAGTTL;
       fp->ipq_p = ip->ip_p;
@@ -752,7 +752,7 @@ check:
    q->flags |= ~BUF_IP_MF;
 
    // XXX free fp pointer
-   remove_ipq(fp);
+   usn_remove_ipq(fp);
 
    return q;
 
@@ -949,7 +949,7 @@ ip_slowtimo()
       fp = fp->next;
       if (p->ipq_ttl == 0) { 
          //ipstat.ips_fragtimeout++;
-         remove_ipq(p);
+         usn_remove_ipq(p);
       }    
    }
 }
@@ -977,5 +977,44 @@ ip_stripoptions( usn_mbuf_t *m, usn_mbuf_t *mopt)
    ip->ip_hl = sizeof(usn_ip_t) >> 2;
 }
 
+
+inline void
+usn_insert_ipq(struct ipq *fp)
+{
+   fp->next = g_ipq.next;
+   g_ipq.next = fp; 
+}
+
+inline void
+usn_remove_ipq(struct ipq *fp)
+{
+   struct ipq *p,*q;
+   for ( p = NULL, q = &g_ipq; q; p = q, q = q->next)
+      if ( fp == q ) {
+         p->next = q->next; 
+         usn_free_mbuf(IPQ_TO_MBUF(fp));
+         break;
+      }
+}
+
+inline void
+insert_ipfrag(struct ipq *fp, struct ipasfrag *ip)
+{
+   return;
+}
+
+/*
+ * Put an ip fragment on a reassembly chain.
+ * Like insque, but pointers in middle of structure.
+ */
+inline void
+ip_enq(struct ipasfrag *p, struct ipasfrag *prev)
+{
+
+   p->ipf_prev = prev;
+   p->ipf_next = prev->ipf_next;
+   prev->ipf_next->ipf_prev = p;
+   prev->ipf_next = p;
+}
 
 

@@ -117,11 +117,9 @@ int	 rn1_refines (void *, void *);
 int	 rn1_walktree (struct usn_radix_node_head *, int (*f)(struct usn_radix_node*, void*), void *);
 struct usn_radix_node
 	 *rn1_addmask (void *, int, int),
-	 *rn1_addroute (void *, void *, struct usn_radix_node_head *,
-			struct usn_radix_node [2]),
+	 *rn1_addroute (void *, void *, struct usn_radix_node_head *, struct usn_radix_node[2]),
 	 *rn1_delete (void *, void *, struct usn_radix_node_head *),
-	 *rn1_insert (void *, struct usn_radix_node_head *, int *,
-			struct radix_node [2]),
+	 *rn1_insert (void *, struct usn_radix_node_head *, int *, struct usn_radix_node[2]),
 	 *rn1_match (void *, struct usn_radix_node_head *),
 	 *rn1_newpair (void *, int, struct usn_radix_node[2]),
 	 *rn1_search (void *, struct usn_radix_node *),

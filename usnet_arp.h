@@ -131,7 +131,7 @@ struct arp_cache {
 extern arp_cache_t *g_arp_cache;
 
 arp_cache_t* 
-arplookup_old(arp_entry_t *e, bool create);
+arplookup_old(arp_entry_t *e, int create);
 
 
 void 

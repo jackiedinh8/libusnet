@@ -108,12 +108,7 @@ void*
 usn_create_pool(int size);
 
 inline usn_mbuf_t* 
-mbuf_copy(usn_mbuf_t *m, int off, int len)
-{
-   // XXX create a new mbuf and copy len of bytes
-   // from m.
-   return m;
-}
+usn_mbuf_copy(usn_mbuf_t *m, int off, int len);
 
 #define MBUF_GET(size) usn_malloc((size))
 #define  mtod(m,t)   ((t)((m)->head))

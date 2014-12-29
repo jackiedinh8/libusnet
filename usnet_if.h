@@ -38,7 +38,7 @@ struct ifnet {
    u_short  if_index;      /* numeric abbreviation for this if  */
    short    if_unit;    /* sub-unit for lower level driver */
    short    if_flags;      /* up/down, broadcast, etc. */
-   struct   if_data {
+   struct   if_data_new { // conflict with std lib.
 /* generic interface information */
       u_char   ifi_type;   /* ethernet, tokenring, etc */
       u_char   ifi_addrlen;   /* media address length */
@@ -47,15 +47,15 @@ struct ifnet {
       u_int    ifi_metric; /* routing metric (external only) */
       u_int    ifi_baudrate;  /* linespeed */
       struct   timeval ifi_lastchange;/* last updated */
-   }  if_data;
+   }  if_data_new;
 };
-#define  if_mtu      if_data.ifi_mtu
-#define  if_type     if_data.ifi_type
-#define  if_addrlen  if_data.ifi_addrlen
-#define  if_hdrlen   if_data.ifi_hdrlen
-#define  if_metric   if_data.ifi_metric
-#define  if_baudrate if_data.ifi_baudrate
-#define  if_lastchange  if_data.ifi_lastchange
+#define  if_mtu      if_data_new.ifi_mtu
+#define  if_type     if_data_new.ifi_type
+#define  if_addrlen  if_data_new.ifi_addrlen
+#define  if_hdrlen   if_data_new.ifi_hdrlen
+#define  if_metric   if_data_new.ifi_metric
+#define  if_baudrate if_data_new.ifi_baudrate
+#define  if_lastchange  if_data_new.ifi_lastchange
 
 /*
  * The ifaddr structure contains information about one address

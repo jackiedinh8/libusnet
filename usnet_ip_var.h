@@ -47,44 +47,7 @@ struct ipq {
 
 extern struct ipq g_ipq;
 
-inline void
-insert_ipq(struct ipq *fp)
-{
-   fp->next = g_ipq.next;
-   g_ipq.next = fp; 
-}
 
-inline void
-remove_ipq(struct ipq *fp)
-{
-   struct ipq *p,*q;
-   for ( p = NULL, q = &g_ipq; q; p = q, q = q->next)
-      if ( fp == q ) {
-         p->next = q->next; 
-         usn_free_mbuf(IPQ_TO_MBUF(fp));
-         break;
-      }
-}
-
-inline void
-insert_ipfrag(struct ipq *fp, struct ipasfrag *ip)
-{
-
-}
-
-/*
- * Put an ip fragment on a reassembly chain.
- * Like insque, but pointers in middle of structure.
- */
-inline void
-ip_enq(struct ipasfrag *p, struct ipasfrag *prev)
-{
-
-   p->ipf_prev = prev;
-   p->ipf_next = prev->ipf_next;
-   prev->ipf_next->ipf_prev = p;
-   prev->ipf_next = p;
-}
 
 
 

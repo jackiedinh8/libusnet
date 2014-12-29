@@ -320,7 +320,7 @@ test:
 
 #define TEST_UDP
 #ifdef TEST_UDP
-dotest: 
+//dotest: 
    int i;
    struct timeval stime, etime, dtime;
    static int cnt = 0;
@@ -332,7 +332,7 @@ dotest:
    }
    cnt=0;
    gettimeofday(&stime,0);
-   for (i=0; i < 1000000; i++) {
+   for (i=0; i < 100; i++) {
       //DEBUG("send %i_packet", i);
       //dump_buffer((char*)m->head, m->mlen, "ipv4");
       m->refs++;
@@ -350,7 +350,7 @@ dotest:
 
    netmap_flush();
    sleep(1);
-   goto dotest;
+   //goto dotest;
 #endif
 
    return;

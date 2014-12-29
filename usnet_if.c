@@ -45,6 +45,7 @@ in_socktrim( struct usn_sockaddr_in *ap)
 
 int get_mac_addr(char* mac_str)
 {
+   int i;
    int lg_ether_addr[6];
    if (sscanf(mac_str, "%x:%x:%x:%x:%x:%x", 
                &lg_ether_addr[0],
@@ -55,7 +56,7 @@ int get_mac_addr(char* mac_str)
                &lg_ether_addr[5]) != 6 ) {
         DEBUG("could not get mac addr: %s", mac_str);
    }
-   for (int i=0; i < 6; i++) {
+   for (i=0; i < 6; i++) {
       g_ether_addr[i] = (char) lg_ether_addr[i];
    }
    return 0;
@@ -85,7 +86,7 @@ init_network()
 
    get_mac_addr(g_macaddress); 
    printf("mac addr: ");
-   for (int i=0; i < 6; i++) {
+   for (i=0; i < 6; i++) {
       printf("%2x ", g_ether_addr[i]);
    }
    printf("\n");

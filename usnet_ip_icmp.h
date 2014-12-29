@@ -1,6 +1,7 @@
 #ifndef _USNET_IP_ICMP_H_
 #define _USNET_IP_ICMP_H_
 
+#include "usnet_in.h"
 #include "usnet_ip.h"
 
 /*
@@ -17,7 +18,7 @@ struct icmp {
 	u_short	icmp_cksum;		/* ones complement cksum of struct */
 	union {
 		u_char ih_pptr;			/* ICMP_PARAMPROB */
-		usn_in_addr ih_gwaddr;	/* ICMP_REDIRECT */
+		struct usn_in_addr ih_gwaddr;	/* ICMP_REDIRECT */
 		struct ih_idseq {
 			n_short	icd_id;
 			n_short	icd_seq;

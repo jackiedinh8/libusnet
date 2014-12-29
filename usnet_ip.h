@@ -7,6 +7,7 @@
 #include "usnet_buf_utils.h"
 #include "usnet_log.h"
 #include "usnet_buf.h"
+#include "usnet_ip_var.h"
 
 /*
  * Definitions for internet protocol version 4.
@@ -184,6 +185,19 @@ handle_ipv4_old(u_char *m, int len, struct netmap_ring *ring, int cur);
 
 void
 ip_stripoptions( usn_mbuf_t *m, usn_mbuf_t *mopt);
+
+inline void
+usn_insert_ipq(struct ipq *fp);
+
+inline void
+usn_remove_ipq(struct ipq *fp);
+
+inline void
+insert_ipfrag(struct ipq *fp, struct ipasfrag *ip);
+
+
+inline void
+ip_enq(struct ipasfrag *p, struct ipasfrag *prev);
 
 #define  IA_SIN(ia) (&(((struct in_ifaddr *)(ia))->ia_addr))
 

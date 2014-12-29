@@ -67,7 +67,7 @@ arplookup( u_long addr, int create, int proxy)
 }
 
 arp_cache_t* 
-arplookup_old(arp_entry_t *ae, bool create)
+arplookup_old(arp_entry_t *ae, int create)
 {
    arp_cache_t   *p_ac = NULL; 
 

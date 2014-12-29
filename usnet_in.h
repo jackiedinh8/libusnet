@@ -84,6 +84,7 @@
  * Internet address (a structure for historical reasons)
  */
 typedef u_int usn_in_addr_t;
+
 struct usn_in_addr {
 	u_int32 s_addr;
 };
@@ -147,6 +148,7 @@ in_canforward(struct usn_in_addr in);
 int
 in_localaddr( struct usn_in_addr in);
 
+struct ifnet; // forward declaration.
 int 
 in_broadcast(struct usn_in_addr in, struct ifnet *ifp);
 

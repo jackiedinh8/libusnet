@@ -6,11 +6,13 @@
 //#include <functional>   // std::equal_to
 //#include <algorithm>    // std::mismatch
 
+#include "usnet_core.h"
 #include "usnet_buf.h"
 #include "usnet_buf_utils.h"
 #include "usnet_types.h"
 #include "usnet_socket.h"
 #include "usnet_log.h"
+#include "usnet_route.h"
 
 extern u_char g_ether_addr[6];
 extern u_char g_ip_addr[4];

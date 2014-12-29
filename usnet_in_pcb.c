@@ -89,7 +89,7 @@ in_pcbbind (struct inpcb *inp, usn_mbuf_t *nam)
         (so->so_options & SO_ACCEPTCONN) == 0))
       wild = INPLOOKUP_WILDCARD;
    if (nam) {
-      sin = mtod(nam, usn_sockaddr_in *);
+      sin = mtod(nam, struct usn_sockaddr_in *);
       if (nam->mlen != sizeof (*sin))
          return (EINVAL);
 
@@ -113,7 +113,7 @@ in_pcbbind (struct inpcb *inp, usn_mbuf_t *nam)
             reuseport = SO_REUSEADDR|SO_REUSEPORT;
       } else if (sin->sin_addr.s_addr != USN_INADDR_ANY) {
          sin->sin_port = 0;      /* yech... */
-         if (ifa_ifwithaddr((usn_sockaddr *)sin) == 0)
+         if (ifa_ifwithaddr((struct usn_sockaddr *)sin) == 0)
             return (EADDRNOTAVAIL);
       }
       if (lport) {

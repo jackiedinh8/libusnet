@@ -2,6 +2,7 @@
 #define _USNET_IP_OUT_H_
 
 #include "usnet_buf.h"
+#include "usnet_route.h"
 
 /*
  * IP output.  The packet in mbuf chain m contains a skeletal IP

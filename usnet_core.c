@@ -46,12 +46,6 @@ print_msg(const char *msg, int len, const char *text)
   printf("print_msg(%s): str=%s\n", text, buf);
 }
 
-void
-usnet_setup(usn_config_t * config)
-{
-   return;
-}
-
 struct nm_desc*
 usnet_init( struct nm_desc *gg_nmd, const char *dev_name, u_int flags)
 {
@@ -167,13 +161,13 @@ usnet_register_tcp_handler(int fd, tcp_handler_cb cb)
 }
 
 int 
-usnet_read(int fd)
+usnet_read(int fd, u_char* buff, u_int len)
 {
    return 0;
 }
 
 int 
-usnet_write(int fd)
+usnet_write(int fd, u_char* buff, u_int len)
 {
    return 0;
 }
@@ -395,6 +389,8 @@ int send_packet(usn_mbuf_t *m)
    u_int               size;
    u_char             *buf;
    int                 attemps = 0;
+   int i, j;
+
    // TODO: put a check here
    fds.fd = g_nmd->fd;
    nifp = g_nmd->nifp;
@@ -433,7 +429,7 @@ resend:
       goto flush;
    }
 send:
-   for (int j = g_nmd->first_tx_ring; 
+   for (j = g_nmd->first_tx_ring; 
             j <= g_nmd->last_tx_ring; j++) {
       struct netmap_ring *ring;
       uint32_t i, idx;
@@ -463,7 +459,7 @@ flush:
    //printf("flush \n");
    ioctl(fds.fd, NIOCTXSYNC, NULL);
   /* final part: wait all the TX queues to be empty. */
-   for (int i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
+   for (i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
       struct netmap_ring *txring = NETMAP_TXRING(nifp, i);
       while (nm_tx_pending(txring)) {
          ioctl(fds.fd, NIOCTXSYNC, NULL);
@@ -480,9 +476,10 @@ fail:
 
 void netmap_flush()
 {
+   int i;
    ioctl(g_nmd->fd, NIOCTXSYNC, NULL);
   /* final part: wait all the TX queues to be empty. */
-   for (int i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
+   for (i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
       struct netmap_ring *txring = NETMAP_TXRING(g_nmd->nifp, i);
       while (nm_tx_pending(txring)) {
          ioctl(g_nmd->fd, NIOCTXSYNC, NULL);
@@ -494,9 +491,10 @@ void netmap_flush()
 void 
 netmap_wait()
 {
+   int i;
    struct pollfd pfd = { .fd = g_nmd->fd, .events = POLLOUT };
 
-   for (int i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
+   for (i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
       struct netmap_ring *txring = NETMAP_TXRING(g_nmd->nifp, i);
       while (nm_tx_pending(txring)) {
          ioctl(pfd.fd, NIOCTXSYNC, NULL);
@@ -547,7 +545,7 @@ test_send(struct netmap_ring *ring, usn_mbuf_t *m,  u_int count)
 void test_netmap(usn_mbuf_t *m)
 {
    int tosend = 0;
-   int n;
+   int n, i;
    int rate_limit = 0;
    int sent = 0;
    struct pollfd pfd = { .fd = g_nmd->fd, .events = POLLOUT };
@@ -586,7 +584,7 @@ void test_netmap(usn_mbuf_t *m)
          D("poll error");
          goto quit;
       }
-      for (int i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
+      for (i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
          int limit = rate_limit ?  tosend : g_arg.burst;
          int cnt = 0;
          if (n > 0 && n - sent < limit)
@@ -612,7 +610,7 @@ void test_netmap(usn_mbuf_t *m)
    ioctl(pfd.fd, NIOCTXSYNC, NULL);
 
    /* final part: wait all the TX queues to be empty. */
-   for (int i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
+   for (i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
       struct netmap_ring *txring = NETMAP_TXRING(nifp, i);
       while (nm_tx_pending(txring)) {
          ioctl(pfd.fd, NIOCTXSYNC, NULL);
@@ -720,19 +718,20 @@ usnet_setup(int argc, char *argv[])
    //g_nmd = usnet_init(g_nmd, "netmap:em1", 0);
    g_nmd = usnet_init(g_nmd, (char*)g_interface, 0);
 
-  if (true) {
+  if (1) {
       struct netmap_if *nifp = g_nmd->nifp;
       struct nmreq *req = &g_nmd->req;
+      int i;
       D("fisrt_tx_ring=%d, last_tx_ring=%d", g_nmd->first_tx_ring, g_nmd->last_tx_ring);
       D("nifp at offset %d, %d tx %d rx region %d",
           req->nr_offset, req->nr_tx_rings, req->nr_rx_rings,
           req->nr_arg2);
-      for (int i = 0; i <= req->nr_tx_rings; i++) {
+      for (i = 0; i <= req->nr_tx_rings; i++) {
          struct netmap_ring *ring = NETMAP_TXRING(nifp, i);
          D("   TX%d at 0x%p slots %d", i,
              (void *)((char *)ring - (char *)nifp), ring->num_slots);
       }    
-      for (int i = 0; i <= req->nr_rx_rings; i++) {
+      for (i = 0; i <= req->nr_rx_rings; i++) {
          struct netmap_ring *ring = NETMAP_RXRING(nifp, i);
          D("   RX%d at 0x%p slots %d", i,
              (void *)((char *)ring - (char *)nifp), ring->num_slots);
@@ -791,7 +790,8 @@ usnet_setup(int argc, char *argv[])
        }
 */
        if (fds.revents & POLLIN) {
-          for (int j = g_nmd->first_rx_ring; 
+          int j;
+          for (j = g_nmd->first_rx_ring; 
                    j <= g_nmd->last_rx_ring; j++) {
              rxring = NETMAP_RXRING(nifp, j);
 

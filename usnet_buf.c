@@ -202,3 +202,12 @@ m_pullup(usn_mbuf_t *m, int len)
    DEBUG("not implemeted yet");
    return m;
 }
+
+inline usn_mbuf_t* 
+usn_mbuf_copy(usn_mbuf_t *m, int off, int len)
+{
+   // XXX create a new mbuf and copy len of bytes
+   // from m.
+   return m;
+}
+
