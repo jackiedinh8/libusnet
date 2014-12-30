@@ -30,7 +30,7 @@ extern	struct protosw inetsw[];
  */
 
 void
-icmp_error(usn_mbuf_t *n, int type, int code, n_long dest, struct ifnet *destifp)
+icmp_error(usn_mbuf_t *n, int type, int code, u_long dest, struct ifnet *destifp)
 {
 	usn_ip_t         *oip = GETIP(n);
 	usn_ip_t         *nip;
@@ -548,7 +548,7 @@ icmp_output(usn_mbuf_t *m, usn_mbuf_t *opts)
 	ipv4_output(m, opts, NULL, 0);
 }
 
-n_time
+u_long
 iptime()
 {
 	struct timeval atv;

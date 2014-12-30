@@ -247,7 +247,7 @@ ip_forward(usn_mbuf_t *m, int srcrt)
    struct rtentry *rt;
    int error, type = 0, code;
    usn_mbuf_t *mcopy;
-   n_long dest;
+   u_long dest;
    struct ifnet *destifp;
 
    dest = 0;
@@ -388,7 +388,7 @@ ip_dooptions(usn_mbuf_t *m)
 	usn_ip_t            *ip = (usn_ip_t*) m->head;
    struct usn_sockaddr_in   ipaddr = { sizeof(ipaddr), AF_INET };
 	u_char              *cp;
-	n_time               ntime;
+	u_long               ntime;
 	u_int                opt, optlen, cnt, off;
    int                  code, type = ICMP_PARAMPROB;
    int                  forward = 0;
@@ -526,7 +526,7 @@ ip_dooptions(usn_mbuf_t *m)
 				break;
 
 			case IPOPT_TS_TSANDADDR:
-				if (ipt->ipt_ptr + sizeof(n_time) +
+				if (ipt->ipt_ptr + sizeof(u_long) +
 				    sizeof(struct in_addr) > ipt->ipt_len)
 					goto bad;
 				ipaddr.sin_addr = dst;
@@ -543,7 +543,7 @@ ip_dooptions(usn_mbuf_t *m)
 				break;
 
 			case IPOPT_TS_PRESPEC:
-				if (ipt->ipt_ptr + sizeof(n_time) +
+				if (ipt->ipt_ptr + sizeof(u_long) +
 				    sizeof(struct in_addr) > ipt->ipt_len)
 					goto bad;
 				bcopy((caddr_t)sin, (caddr_t)&ipaddr.sin_addr,
@@ -559,8 +559,8 @@ ip_dooptions(usn_mbuf_t *m)
          // XXX implement this
 			ntime = iptime();
 			bcopy((caddr_t)&ntime, (caddr_t)cp + ipt->ipt_ptr - 1,
-			    sizeof(n_time));
-			ipt->ipt_ptr += sizeof(n_time);
+			    sizeof(u_long));
+			ipt->ipt_ptr += sizeof(u_long);
 		}
 	}
 	if (forward) {

@@ -26,7 +26,7 @@ char* g_address;
 char* g_netmask;
 char* g_gateway;
 char* g_macaddress;
-struct glob_arg g_arg;
+struct usn_glob_conf g_config;
 
 struct ipq g_ipq;
 
@@ -78,9 +78,9 @@ usnet_init( struct nm_desc *gg_nmd, const char *dev_name, u_int flags)
       txr->num_slots,
       rxr->num_slots);
 
-   memset(&g_arg, 0, sizeof(g_arg));
-   g_arg.burst = 1000;
-   g_arg.tx_rate = 0;
+   memset(&g_config, 0, sizeof(g_config));
+   g_config.burst = 1000;
+   g_config.tx_rate = 0;
 
    memset(&g_ipq, 0, sizeof(g_ipq));
 
@@ -333,15 +333,15 @@ resend:
    if ( attemps==3 )
       return 0;
 
-   if(g_arg.npkts >= g_arg.burst ){
+   if(g_config.npkts >= g_config.burst ){
       fds.events = POLLOUT;
       fds.revents = 0;
-      g_arg.npkts = 0;
+      g_config.npkts = 0;
 
       ret = poll(&fds, 1, 2000);
       if (ret <= 0 ) {
          // XXX: save pending packets? 
-         //      it is easy to reach line rate.
+         //      as it is easy to reach line rate.
          goto fail;
       }
       if (fds.revents & POLLERR) {
@@ -377,8 +377,7 @@ send:
       g_nmd->cur_tx_ring = j;
       ring->head = ring->cur = nm_ring_next(ring, i); 
 
-      g_arg.npkts++;
-      g_arg.tpkts++;
+      g_config.npkts++;
 
       return size;
    }
@@ -515,7 +514,7 @@ void test_netmap(usn_mbuf_t *m)
          goto quit;
       }
       for (i = g_nmd->first_tx_ring; i <= g_nmd->last_tx_ring; i++) {
-         int limit = rate_limit ?  tosend : g_arg.burst;
+         int limit = rate_limit ?  tosend : g_config.burst;
          int cnt = 0;
          if (n > 0 && n - sent < limit)
             limit = n - sent;

@@ -20,15 +20,15 @@ struct icmp {
 		u_char ih_pptr;			/* ICMP_PARAMPROB */
 		struct usn_in_addr ih_gwaddr;	/* ICMP_REDIRECT */
 		struct ih_idseq {
-			n_short	icd_id;
-			n_short	icd_seq;
+			u_short	icd_id;
+			u_short	icd_seq;
 		} ih_idseq;
 		int ih_void;
 
 		/* ICMP_UNREACH_NEEDFRAG -- Path MTU Discovery (RFC1191) */
 		struct ih_pmtu {
-			n_short ipm_void;    
-			n_short ipm_nextmtu;
+			u_short ipm_void;    
+			u_short ipm_nextmtu;
 		} ih_pmtu;
 	} icmp_hun;
 #define	icmp_pptr	icmp_hun.ih_pptr
@@ -40,9 +40,9 @@ struct icmp {
 #define	icmp_nextmtu	icmp_hun.ih_pmtu.ipm_nextmtu
 	union {
 		struct id_ts {
-			n_time its_otime;
-			n_time its_rtime;
-			n_time its_ttime;
+			u_long its_otime;
+			u_long its_rtime;
+			u_long its_ttime;
 		} id_ts;
 		struct id_ip  {
 			usn_ip_t idi_ip;
@@ -68,7 +68,7 @@ struct icmp {
  * ip header length.
  */
 #define	ICMP_MINLEN	8				/* abs minimum */
-#define	ICMP_TSLEN	(8 + 3 * sizeof (n_time))	/* timestamp */
+#define	ICMP_TSLEN	(8 + 3 * sizeof (u_long))	/* timestamp */
 #define	ICMP_MASKLEN	12				/* address mask */
 #define	ICMP_ADVLENMIN	(8 + sizeof (usn_ip_t) + 8)	/* min of icmp, min of ip, and a bad ip */
 #define	ICMP_ADVLEN(p)	(8 + ((p)->icmp_ip.ip_hl << 2) + 8)
@@ -122,14 +122,14 @@ struct icmp {
 	(type) == ICMP_IREQ || (type) == ICMP_IREQREPLY || \
 	(type) == ICMP_MASKREQ || (type) == ICMP_MASKREPLY)
 
-void	icmp_error(usn_mbuf_t *, int, int, n_long, struct ifnet *);
+void	icmp_error(usn_mbuf_t *, int, int, u_long, struct ifnet *);
 void	icmp_input(usn_mbuf_t *, int);
 void	icmp_reflect(usn_mbuf_t *);
 void	icmp_output(usn_mbuf_t *, usn_mbuf_t *);
 int	icmp_sysctl(int *, u_int, void *, size_t *, void *, size_t);
 
 
-n_time
+u_long
 iptime();
 
 #endif //!_USNET_IP_ICMP_H_

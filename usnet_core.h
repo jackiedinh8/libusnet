@@ -28,16 +28,14 @@ extern char* g_netmask;
 extern char* g_gateway;
 extern char* g_macaddress;
 
-struct glob_arg {
-   int pkt_size;
+
+struct usn_glob_conf {
    int burst;
    int forever;
-   int npkts;  /* total packets to send */
-   int tpkts;  /* total packets to send */
-   int frags;  /* fragments per packet */
+   int npkts;  // total packets to send
    int nthreads;
    int cpus;
-   int options;   /* testing */
+   int options;   // testing
    int dev_type;
    int tx_rate;
    struct timespec tx_period;
@@ -45,41 +43,35 @@ struct glob_arg {
    int affinity;
    int main_fd;
    struct nm_desc *nmd;
-   int report_interval;    /* milliseconds between prints */
-   void *(*td_body)(void *);
+   int report_interval;    // milliseconds between prints
    void *mmap_addr;
 #define MAX_IFNAMELEN 64
    char ifname[MAX_IFNAMELEN];
    char *nmr_config;
    int dummy_send;
-   int virt_header;  /* send also the virt_header */
-   int extra_bufs;      /* goes in nr_arg3 */
+   int extra_bufs;      // goes in nr_arg3
 };
 
-extern struct glob_arg g_arg;
-
-typedef struct base_deivce base_device_t;
-struct base_device {
-   struct nm_desc mn_desc;
-   u_int          info;
-};
-
-typedef struct usn_config usn_config_t;
-struct usn_config {
-   u_int  flags;
-   // and more
-};
+extern struct usn_glob_conf g_config;
 
 // XXX: better to read config from file?
+int 
+usnet_parse_conf(int argc, char *argv[]);
+
 int
 usnet_setup(int argc, char *argv[]);
 
 struct nm_desc*
 usnet_init( struct nm_desc *nmd, const char *dev_name, u_int flags);
 
+int
+usnet_finit( struct nm_desc *nmd);
+
 int 
 usnet_init_internal();
 
+int 
+usnet_init_internal();
 // Start handling loop
 void
 usnet_dispatch();
@@ -115,6 +107,14 @@ usnet_drain(int fd, size_t len);
 void
 usnet_udp_listen(u_short port, udp_handler_cb cb);
 
+int
+usnet_udp_read(int fd, u_char* buff, u_int len);
+
+int
+usnet_udp_write(int fd, u_char* buff, u_int len);
+
+int
+usnet_udp_broadcast(int *fd, u_int fd_size, u_char* buff, u_int len);
 
 // tcp functionality
 void

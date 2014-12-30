@@ -11,7 +11,7 @@
 
 typedef struct {
     u_char      *addr;
-    usn_uint_t   key;
+    u_int32      key;
     size_t       size;
 } usn_shm_t;
 
