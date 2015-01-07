@@ -12,6 +12,7 @@
 
 #include "usnet_buf.h"
 #include "usnet_slab.h"
+//#include "usnet_socket.h"
 
 extern struct nm_desc  *g_nmd;
 extern usn_slab_pool_t *g_slab_pool;
@@ -64,29 +65,38 @@ usnet_setup(int argc, char *argv[]);
 struct nm_desc*
 usnet_init( struct nm_desc *nmd, const char *dev_name, u_int flags);
 
-int
+int32
 usnet_finit( struct nm_desc *nmd);
 
-int 
+int32 
 usnet_init_internal();
 
-int 
+int32
 usnet_init_internal();
+
 // Start handling loop
 void
 usnet_dispatch();
 
 // ip stack handling
-typedef void (*accept_handler_cb)(int fd);
-typedef void (*tcp_handler_cb)(int fd);
-typedef void (*udp_handler_cb)(int fd);
+struct usn_sockaddr;
+struct usn_sockaddr_in;
+typedef void (*socket_handler_cb)(u_int32 fd, u_short flags, void* arg);
+typedef void (*accept_handler_cb)(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg);
+typedef void (*error_handler_cb)(int32 error, void* arg);
 
 // common functionality
-int 
-usnet_socket();
+int32
+usnet_socket(u_int32 dom, u_int32 type, u_int32 proto);
 
-int 
-usnet_bind();
+int32 
+usnet_bind(u_int32 s, u_int32 addr, u_short port);
+
+int32
+usnet_listen(u_int32 fd, int32 flags, accept_handler_cb func_cb, error_handler_cb error_cb, void* arg);
+
+int32
+usnet_set_socket_cb(u_int32 fd, int32 flags, socket_handler_cb func_cb, void* arg);
 
 int 
 usnet_connect();
@@ -97,31 +107,29 @@ usnet_recv(int fd, u_char* buff, u_int len);
 int 
 usnet_send(int fd, u_char* buff, u_int len);
 
-size_t
-usnet_get_length(int fd);
+int32
+usnet_read(u_int32 fd, u_char* buff, u_int len);
+
+int32
+usnet_write(u_int32 fd, u_char* buff, u_int len);
+
+u_int32
+usnet_get_length(u_int fd);
+
+usn_buf_t*
+usnet_get_buffer(u_int fd);
+
+int32
+usnet_write_buffer(u_int fd, usn_buf_t *buf);
+
+int32
+usnet_writeto_buffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in* addr);
 
 int 
 usnet_drain(int fd, size_t len);
 
-// udp functionality
-void
-usnet_udp_listen(u_short port, udp_handler_cb cb);
-
-int
-usnet_udp_read(int fd, u_char* buff, u_int len);
-
-int
-usnet_udp_write(int fd, u_char* buff, u_int len);
-
 int
 usnet_udp_broadcast(int *fd, u_int fd_size, u_char* buff, u_int len);
-
-// tcp functionality
-void
-usnet_tcp_listen(u_short port, accept_handler_cb cb);
-
-void
-usnet_register_tcp_handler(int fd, tcp_handler_cb cb);
 
 // eth functionality
 int 

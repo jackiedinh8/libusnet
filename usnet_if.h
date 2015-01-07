@@ -5,6 +5,7 @@
 
 #include "usnet_types.h"
 #include "usnet_in.h"
+#include "usnet_socket.h"
 
 #define  USN_IFF_UP      0x1      /* interface is up */
 #define  USN_IFF_BROADCAST  0x2      /* broadcast address valid */

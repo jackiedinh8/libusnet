@@ -6,8 +6,13 @@
 
 #define NDEBUG(_fmt, ...)     do {} while(0)
 
+#define NON_DEBUG
+#ifdef NON_DEBUG
+
 #define DEBUG(_fmt, ...)     do {} while(0)
-/*
+
+#else
+
 #define DEBUG(_fmt, ...)                \
    do {                    \
       struct timeval _t0;           \
@@ -16,7 +21,8 @@
           (int)(_t0.tv_sec % 1000), (int)_t0.tv_usec, \
           __FUNCTION__, __LINE__, ##__VA_ARGS__);  \
         } while (0)
-*/
+
+#endif
 
 //#define ERROR(_fmt, ...)     do {} while(0)
 

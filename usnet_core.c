@@ -6,6 +6,7 @@
 #include <sys/sysctl.h>
 
 #include "usnet_core.h"
+#include "usnet_common.h"
 #include "usnet_log.h"
 #include "usnet_arp.h"
 #include "usnet_eth.h"
@@ -89,6 +90,7 @@ usnet_init( struct nm_desc *gg_nmd, const char *dev_name, u_int flags)
    usnet_network_init();
    usnet_udp_init();
    usnet_ipv4_init();
+   usnet_socket_init();
 
    return nmd;
 }
@@ -120,24 +122,6 @@ usnet_init_internal()
 
 
 // ip stack handling
-void
-usnet_tcp_listen(u_short port, accept_handler_cb cb)
-{
-   return;
-}
-
-void
-usnet_udp_listen(u_short port, udp_handler_cb cb)
-{
-   return;
-}
-
-void
-usnet_register_tcp_handler(int fd, tcp_handler_cb cb)
-{
-   return;
-}
-
 int 
 usnet_recv(int fd, u_char* buff, u_int len)
 {
@@ -150,8 +134,8 @@ usnet_send(int fd, u_char* buff, u_int len)
    return 0;
 }
 
-size_t
-usnet_get_length(int fd)
+u_int32
+usnet_get_length(u_int fd)
 {
    return 0;
 }
@@ -168,8 +152,7 @@ dump_buffer(char *p, int len, const char *prefix)
    char buf[128];
    int i, j, i0;
 
-   return;
-
+   //return;
    /* get the length in ASCII of the length of the packet. */
 
    /* hexdump routine */
@@ -605,14 +588,14 @@ receive_packets(struct netmap_ring *ring, u_int limit, int dump)
 int
 usnet_setup(int argc, char *argv[])
 {
-   struct nm_desc     *nmd;
+   //struct nm_desc     *nmd;
    char               *p;
    int                 ret;
 
    (void)argc;
    (void)argv;
    (void)p;
-   (void)nmd;
+   //(void)nmd;
 
    setaffinity(0);
 
@@ -721,4 +704,75 @@ usnet_dispatch()
    nm_close(g_nmd);
    return;
 }
+
+int32
+usnet_socket(u_int32 dom, u_int32 type, u_int32 proto)
+{
+   struct usn_socket* so;
+   int    fd;
+   //fd = usnet_create_socket(dom, &so, type, proto);
+   fd = usnet_create_socket(USN_AF_INET, &so, SOCK_DGRAM, proto);
+   if ( fd <= 0 ) {
+      DEBUG("failed to create socket, fd=%d", fd);
+      return -1;
+   }
+   return fd;
+}
+
+
+int 
+usnet_bind(u_int32 s, u_int32 addr, u_short port)
+{
+   DEBUG("binding addr: addr=%x, port=%d", addr, port);
+   usnet_bind_socket(s, addr, port);
+   return 0;
+}
+
+
+int32
+usnet_listen(u_int32 fd, int32 flags, 
+             accept_handler_cb accept_cb, 
+             error_handler_cb error_cb, void* arg)
+{
+   DEBUG("listen on socket, fd=%d", fd);
+
+   usnet_listen_socket(fd, flags, accept_cb, error_cb, arg);
+
+   return 0;
+}
+
+
+int32
+usnet_read(u_int fd, u_char *buf, u_int len)
+{
+   int32 ret = 0;
+   ret = usnet_read_socket(fd, buf, len);
+   return ret;
+}
+
+usn_buf_t*
+usnet_get_buffer(u_int32 fd)
+{
+   return usnet_get_sobuffer(fd);
+}
+
+int32
+usnet_write_buffer(u_int fd, usn_buf_t *buf)
+{
+   usnet_write_sobuffer(fd, buf);
+   return 0;
+}
+
+int32
+usnet_writeto_buffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in* addr)
+{
+   usnet_writeto_sobuffer(fd, buf, addr);
+   return 0;
+}
+
+
+
+
+
+
 

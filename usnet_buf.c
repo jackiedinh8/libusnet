@@ -31,6 +31,24 @@ usn_free_mbuf(usn_mbuf_t *m)
    return;
 }
 
+void
+usn_free_mbuf_chain(usn_mbuf_t *m)
+{
+   usn_mbuf_t *n, *t;
+
+   if ( m == NULL )
+      return;
+
+   n = m;
+   while (n) {
+      t = n; n = n->next;
+      usn_free_mbuf(t);
+   }
+
+   m = NULL;
+   return;
+}
+
 u_char* 
 usn_get_buf(u_char* buf, int size)
 {

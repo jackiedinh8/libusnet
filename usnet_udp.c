@@ -128,6 +128,7 @@ udp_saveopt( caddr_t p, int size, int type)
    bcopy(p, CMSG_DATA(cp), size);
    size += sizeof(*cp);
    m->mlen = size;
+   m->flags = BUF_CTLMSG;
    cp->cmsg_len = size;
    cp->cmsg_level = IPPROTO_IP;
    cp->cmsg_type = type;
@@ -238,6 +239,7 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
    }
 
    if (inp == 0) {
+#ifdef TEST_UDP
       u_int32 ipaddr;
       u_short port;
       port = uh->uh_sport;
@@ -250,7 +252,7 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
       ip->ip_len = ntohs(ntohs(ip->ip_len) + sizeof(*ip));
       dump_buffer((char*)m->head, m->mlen, "test");
       goto test;
-
+#endif
       g_udpstat.udps_noport++;
       if (m->flags & (BUF_BCAST | BUF_MCAST)) {
          g_udpstat.udps_noportbcast++;
@@ -268,6 +270,8 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
     */
    g_udp_in.sin_port = uh->uh_sport;
    g_udp_in.sin_addr = ip->ip_src;
+   DEBUG("g_upd_in: ip=%x, port=%d", 
+          g_udp_in.sin_addr.s_addr, g_udp_in.sin_port);
    if (inp->inp_flags & INP_CONTROLOPTS) {
       usn_mbuf_t **mp = &opts;
 
@@ -297,20 +301,32 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
    iphlen += sizeof(usn_udphdr_t);
    m->mlen -= iphlen;
    m->head += iphlen;
+  
+   // insert msg into queue. 
+   m->flags |= BUF_DATA;
+   if (sbappendaddr(&inp->inp_socket->so_rcv, 
+          (struct usn_sockaddr *)&g_udp_in, m, opts) == 0) {
+      g_udpstat.udps_fullsock++;
+      goto bad;
+   }
+   // callbacks
+   usnet_wakeup_socket(inp);
 
-   // XXX callbacks
 
-   //if (sbappendaddr(&inp->inp_socket->so_rcv, (struct sockaddr *)&g_udp_in,
-   //    m, opts) == 0) {
-   //   g_udpstat.udps_fullsock++;
-   //   goto bad;
-   //}
+   return;
 
-   //sorwakeup(inp->inp_socket);
+bad:
+   DEBUG("bad packet");
+   if (m) 
+      usn_free_mbuf(m);
+   if (opts)
+      usn_free_mbuf(opts);
+   return;
 
+//#define TEST_UDP
+#ifdef TEST_UDP
 test:
-   m->refs++;
-   DEBUG("increase refs, ptr=%p, refs=%d, pkt_size=%d", m, m->refs, m->mlen);
+   DEBUG("increase refs, ptr=%p, refs=%d, pkt_size=%d", m, m->refs++, m->mlen);
    ipv4_output(m, 0, 0, IP_ROUTETOIF);
 
 //#define TEST_NETMAP
@@ -318,8 +334,6 @@ test:
    test_netmap(m);
 #endif
 
-//#define TEST_UDP
-#ifdef TEST_UDP
 //dotest: 
    int i;
    struct timeval stime, etime, dtime;
@@ -352,14 +366,6 @@ test:
    sleep(1);
    //goto dotest;
 #endif
-
-   return;
-bad:
-   DEBUG("bad packet");
-   if (m) 
-      usn_free_mbuf(m);
-   if (opts)
-      usn_free_mbuf(opts);
    return;
 }
 

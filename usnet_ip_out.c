@@ -72,7 +72,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    struct in_ifaddr *ia; 
   
 #ifdef DUMP_PAYLOAD 
-	DEBUG("ipv4_output: dump info: ptr=%p, len=%d\n", m->head, m->mlen);
+	DEBUG("ipv4_output: dump info: ptr=%p, len=%d\n", m, m->mlen);
    dump_buffer((char*)m->head, m->mlen, "ip4");
 #endif
 

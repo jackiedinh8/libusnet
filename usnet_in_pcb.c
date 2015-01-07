@@ -42,15 +42,16 @@ in_losing (struct inpcb *inp)
 }
 
 int 
-in_pcballoc (struct socket *so, struct inpcb *head)
+in_pcballoc (struct usn_socket *so, struct inpcb *head)
 {
    struct inpcb *inp;
-
-   //MALLOC(inp, struct inpcb *, sizeof(*inp), M_PCB, M_NOWAIT);
+ 
    inp = (struct inpcb*)usn_get_buf(0, sizeof(*inp)); 
 
-   if (inp == NULL)
+   if (inp == NULL) {
+      DEBUG("can not alloc inpcb"); 
       return (ENOBUFS);
+   }
 
    bzero((caddr_t)inp, sizeof(*inp));
    inp->inp_head = head;
@@ -68,26 +69,37 @@ in_pcballoc (struct socket *so, struct inpcb *head)
 }
 
 int 
+in_pcblisten(struct inpcb *inp, usn_mbuf_t *nam)
+{
+   struct usn_appcb  *cb;
+
+   if ( nam == NULL )
+      return -1;
+
+   cb = mtod(nam, struct usn_appcb *);
+   inp->inp_appcb = *cb;
+   //inp->inp_flags |= INP_CONTROLOPTS|INP_RECVDSTADDR;
+   return 0;
+}
+
+int 
 in_pcbbind (struct inpcb *inp, usn_mbuf_t *nam)
 {
-   struct socket *so = inp->inp_socket;
+   struct usn_socket *so = inp->inp_socket;
    struct inpcb *head = inp->inp_head;
    struct usn_sockaddr_in *sin;
-   //struct proc *p = curproc;     /* XXX */
    u_short lport = 0;
    int wild = 0, reuseport = (so->so_options & SO_REUSEPORT);
-   int error;
-
-   (void)error;
 
    if (g_in_ifaddr == 0)
       return (EADDRNOTAVAIL);
+
    if (inp->inp_lport || inp->inp_laddr.s_addr != USN_INADDR_ANY)
       return (EINVAL);
-   if ((so->so_options & (SO_REUSEADDR|SO_REUSEPORT)) == 0 &&
-       ((so->so_proto->pr_flags & PR_CONNREQUIRED) == 0 ||
-        (so->so_options & SO_ACCEPTCONN) == 0))
+
+   if ((so->so_options & (SO_REUSEADDR|SO_REUSEPORT)) == 0 )
       wild = INPLOOKUP_WILDCARD;
+
    if (nam) {
       sin = mtod(nam, struct usn_sockaddr_in *);
       if (nam->mlen != sizeof (*sin))
@@ -119,13 +131,12 @@ in_pcbbind (struct inpcb *inp, usn_mbuf_t *nam)
       if (lport) {
          struct inpcb *t;
 
-         /* GROSS */
-         if (ntohs(lport) < IPPORT_RESERVED
-             //&& (error = suser(p->p_ucred, &p->p_acflag))
-                )
+         if ( ntohs(lport) < IPPORT_RESERVED ) {
+            // check admin privileges here, usually with ports < 1024.
             return (EACCES);
+         }
          t = in_pcblookup(head, zeroin_addr, 0,
-             sin->sin_addr, lport, wild);
+                          sin->sin_addr, lport, wild);
          if (t && (reuseport & t->inp_socket->so_options) == 0)
             return (EADDRINUSE);
       }
@@ -211,11 +222,10 @@ int in_pcbconnect (struct inpcb *inp, usn_mbuf_t *nam)
        * unless it is the loopback (in case a route
        * to our address on another net goes to loopback).
        */
-      /*
+
       if (ro->ro_rt 
           && !(ro->ro_rt->rt_ifp->if_flags & IFF_LOOPBACK))
          ia = ifatoia(ro->ro_rt->rt_ifa);
-      */
 
       if (ia == 0) {
          u_short fport = sin->sin_port;
@@ -273,14 +283,18 @@ int in_pcbconnect (struct inpcb *inp, usn_mbuf_t *nam)
 
 int in_pcbdetach (struct inpcb *inp)
 {
-   struct socket *so = inp->inp_socket;
+   struct usn_socket *so = inp->inp_socket;
 
    so->so_pcb = 0;
    //sofree(so);
+
    if (inp->inp_options)
       (void)usn_free_mbuf(inp->inp_options);
-   //if (inp->inp_route.ro_rt)
-   //   rtfree(inp->inp_route.ro_rt);
+
+   if (inp->inp_route.ro_rt)
+      rtfree(inp->inp_route.ro_rt);
+
+   // multicast options
    //ip_freemoptions(inp->inp_moptions);
 
    //remque(inp);
@@ -295,7 +309,7 @@ int in_pcbdisconnect (struct inpcb *inp)
 {
    inp->inp_faddr.s_addr = USN_INADDR_ANY;
    inp->inp_fport = 0;
-   if (inp->inp_socket->so_state & SS_NOFDREF)
+   if (inp->inp_socket->so_state & USN_NOFDREF)
       in_pcbdetach(inp);
    return 0;
 }
@@ -312,7 +326,7 @@ in_pcblookup (
    struct inpcb *inp, *match = 0;
    int matchwild = 3, wildcard;
    u_short fport = fport_arg, lport = lport_arg;
-
+  
    for (inp = head->inp_next; inp != head; inp = inp->inp_next) {
       if (inp->inp_lport != lport)
          continue;
@@ -345,6 +359,8 @@ in_pcblookup (
             break;
       }   
    }   
+   DEBUG("laddr=%x, lport=%d, faddr=%x, fport=%d, is_matched=%d", 
+         laddr.s_addr, lport, faddr.s_addr, fport, match? 1:0);
    return (match); 
 }
 
@@ -391,8 +407,8 @@ in_pcbnotify (
       fport = 0;
       lport = 0;
       laddr.s_addr = 0;
-      if (cmd != PRC_HOSTDEAD)
-         notify = in_rtchange;
+      if (cmd != PRC_HOSTDEAD) // XXX: never see this error.
+         notify = (notify_func_t)in_rtchange;
    }   
    errno = g_inetctlerrmap[cmd];
    for (inp = head->inp_next; inp != head;) {
@@ -407,14 +423,14 @@ in_pcbnotify (
       oinp = inp;
       inp = inp->inp_next;
       if (notify)
-         (*notify)(oinp);
+         (*notify)(oinp, errno);
    }
 
    return 0;
 }
 
 void	 
-in_rtchange (struct inpcb *inp)
+in_rtchange (struct inpcb *inp, int errno)
 {
    if (inp->inp_route.ro_rt) {
       rtfree(inp->inp_route.ro_rt);

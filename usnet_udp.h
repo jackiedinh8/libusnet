@@ -5,6 +5,9 @@
 #include "usnet_buf.h"
 #include "usnet_in_pcb.h"
 
+extern struct inpcb    g_udb;
+extern struct inpcb   *g_udp_last_inpcb;
+extern struct usn_sockaddr_in g_udp_in;
 /*
  * Udp protocol header.
  * Per RFC 768, September, 1981.

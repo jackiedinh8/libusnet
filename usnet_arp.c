@@ -286,6 +286,7 @@ arpresolve(struct rtentry *rt, usn_mbuf_t *m, struct usn_sockaddr *dst, u_char *
    if (la->la_hold)
       usn_free_mbuf(la->la_hold);
    la->la_hold = m;
+   m->refs++;
    if (rt->rt_expire) {
       rt->rt_flags &= ~RTF_REJECT;
       if (la->la_asked == 0 || rt->rt_expire != (u_long)g_time.tv_sec) {
@@ -499,7 +500,9 @@ in_arpinput(usn_mbuf_t *m)
       rt->rt_flags &= ~RTF_REJECT;
       la->la_asked = 0;
       if (la->la_hold) {
-         DEBUG("send a pending packet");
+         DEBUG("send a pending packet, ptr=%p, len=%d", 
+                 la->la_hold, la->la_hold->mlen);
+         dump_buffer((char*)la->la_hold->head, la->la_hold->mlen, "arp");
          eth_output(la->la_hold, rt_key(rt), rt);
          la->la_hold = 0;
       }

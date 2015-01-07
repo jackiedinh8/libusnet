@@ -90,16 +90,6 @@ struct usn_in_addr {
 };
 
 /*
- * Structure used by kernel to store most
- * addresses.
- */
-struct usn_sockaddr {
-   u_char   sa_len;        /* total length */
-   u_char   sa_family;     /* address family */
-   char  sa_data[14];      /* actually longer; address value */
-};
-
-/*
  * Socket address, internet style.
  */
 struct usn_sockaddr_in {

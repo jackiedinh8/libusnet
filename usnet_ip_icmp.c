@@ -2,12 +2,12 @@
 #include <sys/time.h>
 
 #include "usnet_ip_icmp.h"
-#include "usnet_protosw.h"
 #include "usnet_if.h"
 #include "usnet_route.h"
 #include "usnet_in.h"
 #include "usnet_ip_out.h"
 #include "usnet_buf.h"
+#include "usnet_common.h"
 
 
 /*
@@ -72,7 +72,6 @@ icmp_error(usn_mbuf_t *n, int type, int code, u_long dest, struct ifnet *destifp
    m = usn_get_mbuf(0, BUF_MSIZE, 0);
 	if (m == NULL)
 		goto freeit;
-#define min(x,y) ((x) < (y) ? (x) : (y))
 	icmplen = oiplen + min(8, oip->ip_len);
 	m->mlen = icmplen + ICMP_MINLEN;
 

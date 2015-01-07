@@ -6,6 +6,7 @@
 #include "usnet_in.h"
 #include "usnet_error.h"
 #include "usnet_radix.h"
+#include "usnet_socket.h"
 
 #define RTM_VERSION  3  /* Up the ante and ignore older versions */
 
