@@ -262,7 +262,6 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
 
    // FIXME: ensuring that there is room for 14 bytes 
    //         at the front of the packet.
-   dump_buffer((char*)m->head, m->mlen, "eth");
    BUF_PREPEND(m, sizeof (ether_header_t));
 
    if (m == 0) {

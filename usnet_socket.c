@@ -582,7 +582,6 @@ usnet_write_sobuffer(u_int fd, usn_buf_t *buf)
    ip->ip_src.s_addr = pcb->inp_laddr.s_addr;
    ip->ip_dst.s_addr = inet_addr("10.10.10.1");//pcb->inp_faddr.s_addr;
    ip->ip_len = ntohs(m->mlen);
-   dump_buffer((char*)m->head, m->mlen, "test");
 
    // FIXME: enqueue msg
    (void)so;
@@ -633,7 +632,6 @@ usnet_writeto_sobuffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
    ip->ip_src.s_addr = pcb->inp_laddr.s_addr;
    ip->ip_dst.s_addr = addr->sin_addr.s_addr;
    ip->ip_len = ntohs(m->mlen);
-   dump_buffer((char*)m->head, m->mlen, "test");
 
    // FIXME: enqueue msg
    (void)so;

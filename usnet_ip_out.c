@@ -120,14 +120,18 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       RTFREE(ro->ro_rt);
       ro->ro_rt = (struct rtentry *)0;
    }
+#ifdef DUMP_PAYLOAD
    DEBUG("ptr=%p", m);
    dump_buffer((char*)m->head, m->mlen, "dst1");
+#endif
    if (ro->ro_rt == 0) {
       DEBUG("set default dst");
       dst->sin_family = AF_INET;
       dst->sin_len = sizeof(*dst);
       dst->sin_addr = ip->ip_dst;
+#ifdef DUMP_PAYLOAD
       dump_buffer((char*)dst, sizeof(*dst), "dst2");
+#endif
    }
    /*
     * If routing to interface only,

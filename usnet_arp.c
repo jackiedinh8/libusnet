@@ -502,7 +502,6 @@ in_arpinput(usn_mbuf_t *m)
       if (la->la_hold) {
          DEBUG("send a pending packet, ptr=%p, len=%d", 
                  la->la_hold, la->la_hold->mlen);
-         dump_buffer((char*)la->la_hold->head, la->la_hold->mlen, "arp");
          eth_output(la->la_hold, rt_key(rt), rt);
          la->la_hold = 0;
       }

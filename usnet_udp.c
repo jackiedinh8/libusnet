@@ -156,7 +156,6 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
           sizeof(ipov.ih_src), sizeof(ipov.ih_dst));
    
    g_udpstat.udps_ipackets++;
-   dump_buffer((char*)m->head, m->mlen, "udp_"); 
    /* 
     * Strip IP options, if any; should skip this,
     * make available to user, and use on returned packets,
@@ -169,8 +168,6 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
       ip_stripoptions(m, (usn_mbuf_t *)0);
       iphlen = sizeof(usn_ip_t);
    }
-
-   dump_buffer((char*)m->head, m->mlen, "opts"); 
 
    /*
     * Get IP and UDP header together in first mbuf.
