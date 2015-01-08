@@ -152,7 +152,10 @@ dump_buffer(char *p, int len, const char *prefix)
    char buf[128];
    int i, j, i0;
 
-   //return;
+   if ( p == NULL ) {
+      DEBUG("null pointer");
+      return;
+   }
    /* get the length in ASCII of the length of the packet. */
 
    /* hexdump routine */
@@ -293,11 +296,12 @@ usnet_get_options(int argc, char* const *argv)
    return 0;
 }
 
-int usnet_send_frame(usn_mbuf_t *m)
+int32
+usnet_send_frame(usn_mbuf_t *m)
 {
    struct pollfd       fds;
-   struct netmap_if    *nifp;
-   int                 ret;
+   struct netmap_if   *nifp;
+   int32               ret;
    u_int               size;
    u_char             *buf;
    int                 attemps = 0;
@@ -308,13 +312,13 @@ int usnet_send_frame(usn_mbuf_t *m)
    nifp = g_nmd->nifp;
 
    if ( m == 0 )
-      return 0;
+      return -1;
    buf = m->head;
    size = m->mlen;
 
 resend:
    if ( attemps==3 )
-      return 0;
+      return -2;
 
    if(g_config.npkts >= g_config.burst ){
       fds.events = POLLOUT;
@@ -382,7 +386,7 @@ flush:
 
 fail:
    printf("send_packet: failed to send\n");
-   return 0;
+   return -3;
 } 
 
 void 
@@ -470,7 +474,7 @@ void test_netmap(usn_mbuf_t *m)
    // re-open netmap device.
    nmd.req.nr_flags = NR_REG_ONE_NIC;
    nmd.req.nr_ringid = 0;  
-   printf("interface name:%s",g_interface);
+   printf("interface name:%s,len=%d\n",g_interface, m->mlen);
    t_nmd = nm_open(g_interface, NULL, nmd_flags 
                    | NM_OPEN_IFNAME | NM_OPEN_NO_MMAP, &nmd);
 
@@ -482,13 +486,16 @@ void test_netmap(usn_mbuf_t *m)
    pfd.fd =t_nmd->fd;
    pfd.events = POLLOUT;
 
-   n = 1000000;
+   n = 10000;
+   sent = 0;
+   g_config.burst = 512;
+   printf("g_config.burst=%d\n", g_config.burst);
    gettimeofday(&stime, 0);
    while ( sent < n ) {
       /*
        * wait for available room in the send queue(s)
        */
-      if (poll(&pfd, 1, 2000) <= 0) {
+      if (poll(&pfd, 1, 1000) <= 0) {
          D("poll error/timeout on queue: %s", strerror(errno));
          // goto quit;
       }
@@ -757,20 +764,25 @@ usnet_get_buffer(u_int32 fd)
 }
 
 int32
-usnet_write_buffer(u_int fd, usn_buf_t *buf)
+usnet_write_buffer(u_int32 fd, usn_buf_t *buf)
 {
-   usnet_write_sobuffer(fd, buf);
-   return 0;
+   return usnet_write_sobuffer(fd, buf);
 }
 
 int32
-usnet_writeto_buffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in* addr)
+usnet_writeto_buffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in* addr)
 {
-   usnet_writeto_sobuffer(fd, buf, addr);
-   return 0;
+   return usnet_writeto_sobuffer(fd, buf, addr);
 }
 
 
+int32
+usnet_udp_broadcast(u_int32 fd, u_char* buff, u_int32 len, 
+       struct usn_sockaddr_in* addrs, u_int32 addr_num)
+{
+   usnet_udp_sobroadcast(fd, buff, len, addrs, addr_num);
+   return 0;
+}
 
 
 

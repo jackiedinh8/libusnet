@@ -59,17 +59,18 @@ ip_insertoptions( usn_mbuf_t *m, usn_mbuf_t *opt, int *phlen)
  * The mbuf chain containing the packet will be freed.
  * The mbuf opt, if present, will not be freed.
  */
-int
+int32
 ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 {
    usn_ip_t *ip, *mhip;
    struct ifnet *ifp;
    usn_mbuf_t *m = m0;
    int hlen = sizeof (usn_ip_t); 
-   int len, off, error = 0; 
+   int len, off;
    struct route iproute;
    struct usn_sockaddr_in *dst;
    struct in_ifaddr *ia; 
+   int32 error = -1;
   
 #ifdef DUMP_PAYLOAD 
 	DEBUG("ipv4_output: dump info: ptr=%p, len=%d\n", m, m->mlen);
@@ -144,7 +145,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
           (ia = ifatoia(ifa_ifwithnet(sintosa(dst)))) == 0) {
          //ipstat.ips_noroute++;
          DEBUG("not found outgoing interface");
-         error = ENETUNREACH;
+         error = -ENETUNREACH;
          goto bad;
       }
       ifp = ia->ia_ifp;
@@ -157,7 +158,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       if (ro->ro_rt == 0) {
          //ipstat.ips_noroute++;
          DEBUG("not found route");
-         error = EHOSTUNREACH;
+         error = -EHOSTUNREACH;
          goto bad;
       }
       DEBUG("route found");
@@ -175,9 +176,9 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     * If source address not specified yet, use address
     * of outgoing interface.
     */
-   DEBUG("set source ip address, addr=%x", ip->ip_src.s_addr);
    if (ip->ip_src.s_addr == USN_INADDR_ANY) {
       ip->ip_src = IA_SIN(ia)->sin_addr;
+      DEBUG("set source ip address, addr=%x", ip->ip_src.s_addr);
    }
 
    /*
@@ -188,18 +189,18 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    if (in_broadcast(dst->sin_addr, ifp)) {
       if ((ifp->if_flags & IFF_BROADCAST) == 0) {
          DEBUG("broadcast is not available, addr=%x", dst->sin_addr.s_addr);
-         error = EADDRNOTAVAIL;
+         error = -EADDRNOTAVAIL;
          goto bad;
       }
       if ((flags & IP_ALLOWBROADCAST) == 0) {
          DEBUG("broadcast is not allowed, addr=%x", dst->sin_addr.s_addr);
-         error = EACCES;
+         error = -EACCES;
          goto bad;
       }
       /* don't allow broadcast messages to be fragmented */
       if ((u_short)ip->ip_len > ifp->if_mtu) {
          DEBUG("broadcast can not be fragmented, addr=%x", dst->sin_addr.s_addr);
-         error = EMSGSIZE;
+         error = -EMSGSIZE;
          goto bad;
       }
       m->flags |= BUF_BCAST;
@@ -215,8 +216,6 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 
    DEBUG("check mtu, ip_len=%d, mtu=%d", htons((u_short)ip->ip_len), ifp->if_mtu);
    if (htons((u_short)ip->ip_len) <= ifp->if_mtu) {
-      //ip->ip_len = htons((u_short)ip->ip_len);
-      //ip->ip_off = htons((u_short)ip->ip_off);
       ip->ip_sum = 0;
       ip->ip_sum = in_cksum(m, hlen);
 
@@ -235,14 +234,14 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     */
    if (ip->ip_off & IP_DF) {
       DEBUG("bad fragment, ip_off=%d", ip->ip_off);
-      error = EMSGSIZE;
+      error = -EMSGSIZE;
       //ipstat.ips_cantfrag++;
       goto bad;
    }
    len = (ifp->if_mtu - hlen) &~ 7;
    if (len < 8) {
       DEBUG("too small, len=%d", len);
-      error = EMSGSIZE;
+      error = -EMSGSIZE;
       goto bad;
    }
 
@@ -262,7 +261,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       //MGETHDR(m, M_DONTWAIT, MT_HEADER);
       m = 0;
       if (m == 0) {
-         error = ENOBUFS;
+         error = -ENOBUFS;
          //ipstat.ips_odropped++;
          DEBUG("m is null");
          goto sendorfree;
@@ -290,7 +289,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       if (m->next == 0) {
          DEBUG("m is released");
          usn_free_mbuf(m);
-         error = ENOBUFS;  /* ??? */
+         error = -ENOBUFS;  /* ??? */
          //ipstat.ips_odropped++;
          goto sendorfree;
       }

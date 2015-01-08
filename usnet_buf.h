@@ -29,6 +29,7 @@ struct usn_mbuf {
 #define	BUF_ADDR                 0x0080
 #define	BUF_BCAST                0x0100	/* send/received as link-level broadcast */
 #define	BUF_MCAST 	             0x0200	/* send/received as link-level multicast */
+#define	BUF_RAW  	             0x0400	/* raw packet */
 #define	BUF_ZERO_COPY            0x1000	
 }__attribute__((packed)); // XXX: check performance or need to padding
 

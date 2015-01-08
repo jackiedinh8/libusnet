@@ -215,10 +215,14 @@ usn_buf_t*
 usnet_get_sobuffer(u_int32 fd);
 
 int32
-usnet_write_sobuffer(u_int fd, usn_buf_t *buf);
+usnet_write_sobuffer(u_int32 fd, usn_buf_t *buf);
 
 int32
-usnet_writeto_sobuffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in *addr);
+usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr);
+
+int32
+usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len, 
+       struct usn_sockaddr_in* addrs, u_int32 addr_num);
 
 /*
  * How much space is there in a socket buffer (so->so_snd or so->so_rcv)?

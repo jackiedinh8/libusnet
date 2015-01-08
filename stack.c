@@ -14,8 +14,6 @@ void accept_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
 {
    struct usn_sockaddr_in *inaddr = (struct usn_sockaddr_in *)addr;
    usn_buf_t *buf = NULL;
-   int i, cnt;
-   struct timeval stime, etime, dtime;
 
    (void)inaddr;
    DEBUG("revc data, fd=%d, addr_len=%d, ip=%x, port=%d, ip_=%x", 
@@ -29,19 +27,35 @@ void accept_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
    }
 
    DEBUG("process data: len=%d \n, %s", buf->len, buf->data);
+//#define TEST_BCAST
+#ifdef TEST_BCAST
+   int32 i, cnt, num, ret;
+   usn_mbuf_t *m = ((usn_mbuf_t*)buf);
+   struct timeval stime, etime, dtime;
+   printf("head=%p, mlen=%d\n",m->head,m->mlen);
+   cnt = 150000;
+   num = 0;
    gettimeofday(&stime, 0);
-   cnt = 10000;
    for (i=0; i<cnt; i++){
       ((usn_mbuf_t*)buf)->refs++;
-      usnet_writeto_buffer(fd, buf, inaddr);
-      ((usn_mbuf_t*)buf)->head += sizeof(usn_ip_t) + sizeof(usn_udphdr_t);
-      ((usn_mbuf_t*)buf)->mlen -= sizeof(usn_ip_t) + sizeof(usn_udphdr_t);
+      ret = usnet_writeto_buffer(fd, buf, inaddr);
+
+      if ( ret < 0 ) {
+         printf("ret=%d, i=%d\n",ret,i);
+         continue;
+      }
+      num++;
+      ((usn_mbuf_t*)buf)->head += sizeof(usn_ip_t) + sizeof(usn_udphdr_t)+14;
+      ((usn_mbuf_t*)buf)->mlen -= sizeof(usn_ip_t) + sizeof(usn_udphdr_t)+14;
       
    }
    gettimeofday(&etime, 0); 
    timersub(&etime, &stime, &dtime);
-   printf("num of sent udp packets by netmap-based application: %d\n", cnt);
+   printf("num of sent udp packets by netmap-based application: %d(/%d)\n", num, cnt);
    printf("total time: %lu (seconds) %lu (microseconds)\n", dtime.tv_sec, dtime.tv_usec);
+#else
+   usnet_writeto_buffer(fd, buf, inaddr);
+#endif
 
    //usnet_write_buffer(fd, buf);
 

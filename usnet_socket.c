@@ -593,30 +593,31 @@ usnet_write_sobuffer(u_int fd, usn_buf_t *buf)
 }
 
 int32
-usnet_writeto_sobuffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
+usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
 {
    struct usn_socket *so = usnet_get_socket(fd);
    struct inpcb *pcb = 0;
    usn_mbuf_t   *m = 0;
    usn_ip_t     *ip;
    usn_udphdr_t *uh;
+   int32         ret = 0;
 
    if ( buf == NULL ) 
-      return 0;
+      return -1;
 
    if ( so == NULL )
-      return 0;
+      return -2;
 
    pcb = (struct inpcb*)so->so_pcb;
 
    if ( pcb == NULL )
-      return 0;
+      return -3;
 
    m = (usn_mbuf_t*) buf;
    if ( m->head - m->start < sizeof(*ip) + sizeof(*uh) ) {
       // FIXME: reallocate mbuf.
       DEBUG("reallacate mbuf: notyet");
-      return 0;
+      return -4;
    }
    m->head -= sizeof(*uh);
    m->mlen += sizeof(*uh);
@@ -637,8 +638,26 @@ usnet_writeto_sobuffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
    (void)so;
    // FIXME: wakeup process
 
-   ipv4_output(m, 0, 0, IP_ROUTETOIF);
+   ret = ipv4_output(m, 0, 0, IP_ROUTETOIF);
 
-   return 0;
+   return ret;
+}
+
+
+int32
+usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len, 
+      struct usn_sockaddr_in* addrs, u_int32 addr_num)
+{
+   int32 ret = 0;
+   int32 i = 0;
+   usn_mbuf_t *m;
+
+   m = usn_get_mbuf(buff, len, 0);
+
+   for ( i=0; i<addr_num; i++ ) {
+      usnet_writeto_sobuffer(fd, (usn_buf_t*)m, &addrs[i]);
+   }
+
+   return ret;
 }
 

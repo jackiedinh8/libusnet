@@ -236,6 +236,18 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
    }
 
    if (inp == 0) {
+      g_udpstat.udps_noport++;
+      if (m->flags & (BUF_BCAST | BUF_MCAST)) {
+         g_udpstat.udps_noportbcast++;
+         goto bad;
+      }
+      *ip = save_ip;
+      ip->ip_len += iphlen;
+      icmp_error(m, ICMP_UNREACH, ICMP_UNREACH_PORT, 0, 0);
+      return;
+   }
+
+//#define TEST_UDP
 #ifdef TEST_UDP
       u_int32 ipaddr;
       u_short port;
@@ -247,19 +259,9 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
       ip->ip_src.s_addr = ip->ip_dst.s_addr;
       ip->ip_dst.s_addr = ipaddr;
       ip->ip_len = ntohs(ntohs(ip->ip_len) + sizeof(*ip));
-      dump_buffer((char*)m->head, m->mlen, "test");
+      //dump_buffer((char*)m->head, m->mlen, "test");
       goto test;
 #endif
-      g_udpstat.udps_noport++;
-      if (m->flags & (BUF_BCAST | BUF_MCAST)) {
-         g_udpstat.udps_noportbcast++;
-         goto bad;
-      }
-      *ip = save_ip;
-      ip->ip_len += iphlen;
-      icmp_error(m, ICMP_UNREACH, ICMP_UNREACH_PORT, 0, 0);
-      return;
-   }
 
    /*
     * Construct sockaddr format source address.
@@ -309,7 +311,6 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
    // callbacks
    usnet_wakeup_socket(inp);
 
-
    return;
 
 bad:
@@ -320,18 +321,19 @@ bad:
       usn_free_mbuf(opts);
    return;
 
-//#define TEST_UDP
 #ifdef TEST_UDP
 test:
-   DEBUG("increase refs, ptr=%p, refs=%d, pkt_size=%d", m, m->refs++, m->mlen);
+   DEBUG("increase refs, ptr=%p, refs=%d, pkt_size=%d", m, m->refs, m->mlen);
+   printf("packet_len=%d \n", m->mlen);
+   m->refs++;
    ipv4_output(m, 0, 0, IP_ROUTETOIF);
 
 //#define TEST_NETMAP
 #ifdef TEST_NETMAP
    test_netmap(m);
+   return;
 #endif
-
-//dotest: 
+   
    int i;
    struct timeval stime, etime, dtime;
    static int cnt = 0;
@@ -343,13 +345,13 @@ test:
    }
    cnt=0;
    gettimeofday(&stime,0);
-   for (i=0; i < 100; i++) {
+   for (i=0; i < 1000000; i++) {
       //DEBUG("send %i_packet", i);
       //dump_buffer((char*)m->head, m->mlen, "ipv4");
       m->refs++;
       m->head += sizeof(ether_header_t);
       m->mlen -= sizeof(ether_header_t);
-      if ( ipv4_output(m, 0, 0, IP_ROUTETOIF) ) cnt++;
+      if ( ipv4_output(m, 0, 0, IP_ROUTETOIF) >= 0 ) cnt++;
       //if ( send_mbuf(m) ) cnt++;
    }
    gettimeofday(&etime,0);

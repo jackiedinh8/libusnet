@@ -285,8 +285,9 @@ arpresolve(struct rtentry *rt, usn_mbuf_t *m, struct usn_sockaddr *dst, u_char *
     */
    if (la->la_hold)
       usn_free_mbuf(la->la_hold);
-   la->la_hold = m;
+   m->flags |= BUF_RAW;
    m->refs++;
+   la->la_hold = m;
    if (rt->rt_expire) {
       rt->rt_flags &= ~RTF_REJECT;
       if (la->la_asked == 0 || rt->rt_expire != (u_long)g_time.tv_sec) {

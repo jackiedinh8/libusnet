@@ -10,7 +10,7 @@
  * The mbuf chain containing the packet will be freed.
  * The mbuf opt, if present, will not be freed.
  */
-int
+int32
 ipv4_output(
    usn_mbuf_t *m0, 
    usn_mbuf_t *opt,

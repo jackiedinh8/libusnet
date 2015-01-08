@@ -470,13 +470,14 @@ rtinit( struct ifaddr *ifa, int cmd, int flags)
    struct rtentry *nrt = 0;
    int error;
 
+   dst = flags & RTF_HOST ? ifa->ifa_dstaddr : ifa->ifa_addr;
+
 #ifdef DUMP_PAYLOAD
    DEBUG("rtinit: start, flags=%d", flags);
    dump_buffer((char*)dst, sizeof(*dst), "dst");
    dump_buffer((char*)ifa->ifa_addr, sizeof(*dst), "adr");
 #endif
 
-   dst = flags & RTF_HOST ? ifa->ifa_dstaddr : ifa->ifa_addr;
    if (cmd == RTM_DELETE) {
       if ((flags & RTF_HOST) == 0 && ifa->ifa_netmask) {
          deldst = (struct usn_sockaddr *)usn_get_buf(0, sizeof(*dst));

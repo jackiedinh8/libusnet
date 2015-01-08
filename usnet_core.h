@@ -128,11 +128,11 @@ usnet_writeto_buffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in* addr);
 int 
 usnet_drain(int fd, size_t len);
 
-int
-usnet_udp_broadcast(int *fd, u_int fd_size, u_char* buff, u_int len);
+int32
+usnet_udp_broadcast(u_int32 fd, u_char* buff, u_int32 len, struct usn_sockaddr_in* addrs, u_int32 addr_num);
 
 // eth functionality
-int 
+int32 
 usnet_send_frame(usn_mbuf_t *m);
 
 

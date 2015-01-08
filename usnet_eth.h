@@ -26,7 +26,7 @@ ether_sprintf(u_char *ap);
 void
 eth_input(u_char *m, int len);
 
-int
+int32
 eth_output(usn_mbuf_t *m, struct usn_sockaddr *dst, struct rtentry *rt0);
 
 void 

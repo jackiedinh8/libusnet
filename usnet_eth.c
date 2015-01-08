@@ -179,12 +179,12 @@ eth_input(u_char *buf, int len)
    return;
 }
 
-#define senderr(x) { g_errno = x ; goto bad; }
-int
+#define senderr(x) { g_errno = x; error=-(x) ; goto bad; }
+int32
 eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
 {
    short type;
-   int  error = 0;
+   int32  error = -1;
    u_char edst[6];
    usn_mbuf_t *m = m0;
    struct rtentry *rt;
@@ -233,7 +233,7 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
    case AF_INET:
       DEBUG("call arpresolve, family=%d", dst->sa_family);
       if (!arpresolve(rt, m, dst, edst))
-         return (0); /* if not yet resolved */
+         return -1;//(0); /* if not yet resolved */
 
       // TODO: If broadcasting on a simplex interface, loopback a copy
       //if ((m->m_flags & BUF_BCAST) && (ifp->if_flags & USN_IFF_SIMPLEX))
@@ -262,7 +262,9 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
 
    // FIXME: ensuring that there is room for 14 bytes 
    //         at the front of the packet.
-   BUF_PREPEND(m, sizeof (ether_header_t));
+   if ( (m->flags & BUF_RAW) == 0 ) {
+      BUF_PREPEND(m, sizeof (ether_header_t));
+   }
 
    if (m == 0) {
       DEBUG("eth_output: empty data");
