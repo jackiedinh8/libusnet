@@ -197,7 +197,7 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
 
    // XXX g_ifnet could be passed as argument if we implement multi interfaces.
    if ((g_ifnet->if_flags & (USN_IFF_UP|USN_IFF_RUNNING)) != (USN_IFF_UP|USN_IFF_RUNNING))
-      senderr(ENETDOWN);
+      senderr(USN_ENETDOWN);
 
    // TODO: update it
    //g_ifnet->if_lastchange = time(0);
@@ -209,7 +209,7 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
          if (rt0)
             rt->rt_refcnt--;
          else
-            senderr(EHOSTUNREACH);
+            senderr(USN_ENOROUTE);
       }
       if (rt->rt_flags & RTF_GATEWAY) {
          if (rt->rt_gwroute == 0)
@@ -220,13 +220,13 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
          lookup: 
             rt->rt_gwroute = rtalloc8(rt->rt_gateway, 1);
             if ((rt = rt->rt_gwroute) == 0)
-               senderr(EHOSTUNREACH);
+               senderr(USN_ENOROUTE);
          }
       }
       if (rt->rt_flags & RTF_REJECT)
          if (rt->rt_rmx.rmx_expire == 0 ||
              g_time.tv_sec < (long)rt->rt_rmx.rmx_expire)
-            senderr(rt == rt0 ? EHOSTDOWN : EHOSTUNREACH);
+            senderr(rt == rt0 ? USN_EHOSTDOWN : USN_ENOROUTE);
    }
 
    switch (dst->sa_family) {
@@ -252,7 +252,7 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
    default:
       DEBUG("%s%d: can't handle af%d\n", g_ifnet->if_name, g_ifnet->if_unit,
          dst->sa_family);
-      senderr(EAFNOSUPPORT);
+      senderr(USN_EAFNOSUPPORT);
    }
 
    /* 
@@ -268,7 +268,7 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
 
    if (m == 0) {
       DEBUG("eth_output: empty data");
-      senderr(ENOBUFS);
+      senderr(USN_ENOBUFSPACE);
    }
 #ifdef DUMP_PAYLOAD
    DEBUG("eth_output: prepend eth header, ptr=%p, len=%d, type=%d", 

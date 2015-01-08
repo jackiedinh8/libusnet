@@ -301,7 +301,7 @@ usnet_send_frame(usn_mbuf_t *m)
 {
    struct pollfd       fds;
    struct netmap_if   *nifp;
-   int32               ret;
+   int32               ret, error;
    u_int               size;
    u_char             *buf;
    int                 attemps = 0;
@@ -312,13 +312,13 @@ usnet_send_frame(usn_mbuf_t *m)
    nifp = g_nmd->nifp;
 
    if ( m == 0 )
-      return -1;
+      return -USN_ENULLPTR;
    buf = m->head;
    size = m->mlen;
 
 resend:
    if ( attemps==3 )
-      return -2;
+      return -USN_EBUSY;
 
    if(g_config.npkts >= g_config.burst ){
       fds.events = POLLOUT;
@@ -336,6 +336,7 @@ resend:
          (void)tx;
 	      DEBUG("error on em1, rx [%d,%d,%d]",
          tx->head, tx->cur, tx->tail);
+         error = -USN_EFDPOLL;
          goto fail;
       }
        
@@ -386,7 +387,7 @@ flush:
 
 fail:
    printf("send_packet: failed to send\n");
-   return -3;
+   return error;
 } 
 
 void 
