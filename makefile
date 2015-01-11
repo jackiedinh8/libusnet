@@ -23,7 +23,8 @@ INCLUDE = -I./
 OBJS    := stack.o usnet_arp.o usnet_eth.o usnet_ip.o usnet_core.o usnet_slab.o \
            usnet_buf.o usnet_shm.o usnet_ip_icmp.o usnet_if.o usnet_route.o \
            usnet_error.o usnet_ip_out.o usnet_in.o usnet_in_pcb.o usnet_udp.o usnet_radix.o\
-           usnet_socket.o usnet_socket_util.o
+           usnet_socket.o usnet_socket_util.o usnet_order32.o\
+           usnet_tcp_subr.o
 
 BIN     := libusnet.a
 

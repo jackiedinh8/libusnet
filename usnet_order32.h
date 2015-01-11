@@ -1,5 +1,5 @@
 #ifndef USNET_ORDER32_H
-#define ORDER32_H
+#define USNET_ORDER32_H
 
 #include <limits.h>
 #include <stdint.h>
@@ -15,10 +15,13 @@ enum
     O32_PDP_ENDIAN = 0x01000302ul
 };
 
-static const union { 
+typedef union usn_order usn_order_t;
+union usn_order {
    unsigned char bytes[4]; 
-   uint32_t value; } 
-o32_host_order = { { 0, 1, 2, 3 } };
+   uint32_t value; 
+};
+
+extern usn_order_t o32_host_order;// = { { 0, 1, 2, 3 } };
 
 #define O32_HOST_ORDER (o32_host_order.value)
 

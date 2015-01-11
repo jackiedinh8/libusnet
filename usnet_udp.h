@@ -59,22 +59,6 @@ struct usn_udphdr {
  * UDP kernel structures and variables.
  */
 
-/*
- * Overlay for ip header used by other protocols (tcp, udp).
- */
-struct ipovly {
-   union {
-      caddr_t  ih_next; /* for protocol sequence q's */
-      caddr_t  ih_prev; 
-   };
-//#define	ih_prev		ih_next
-   u_char   ih_x1;         /* (unused) */
-   u_char   ih_pr;         /* protocol */
-   short    ih_len;        /* protocol length */
-   struct   usn_in_addr ih_src;      /* source internet address */
-   struct   usn_in_addr ih_dst;      /* destination internet address */
-} __attribute__((packed));
-
 struct	udpiphdr {
 	struct 	ipovly   ui_i;		/* overlaid ip structure */
 	usn_udphdr_t          ui_u;		/* udp header */
