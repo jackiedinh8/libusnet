@@ -36,9 +36,11 @@
 #ifndef USNET_TCP_VAR_H_
 #define USNET_TCP_VAR_H_
 
+#include "usnet_tcp.h"
 #include "usnet_tcp_timer.h"
 #include "usnet_socket.h"
 #include "usnet_ip.h"
+#include "usnet_in_pcb.h"
 
 /*
  * Kernel variables for tcp.
@@ -240,9 +242,9 @@ struct	tcpstat {
 	u_long	tcps_badsyn;		/* bogus SYN, e.g. premature ACK */
 };
 
-struct	inpcb tcb;		/* head of queue of active tcpcb's */
-struct	tcpstat tcpstat;	/* tcp statistics */
-u_long	tcp_now;		/* for RFC 1323 timestamps */
+extern struct inpcb   g_tcb;		/* head of queue of active tcpcb's */
+extern struct tcpstat g_tcpstat;	/* tcp statistics */
+extern u_long         g_tcp_now;  /* for RFC 1323 timestamps */
 
 int	 
 tcp_attach (struct usn_socket *);

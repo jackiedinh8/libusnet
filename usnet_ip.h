@@ -222,6 +222,7 @@ struct ipoption {
 
 
 extern u_short  g_ip_id;            /* ip packet ctr, for ids */
+extern int g_ip_defttl;
 
 void 
 usnet_ipv4_init();

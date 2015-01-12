@@ -58,7 +58,7 @@ in_losing (struct inpcb *inp)
       info.rti_info[RTAX_GATEWAY] = rt->rt_gateway;
       info.rti_info[RTAX_NETMASK] = rt_mask(rt);
 
-      // XXX implement this
+      // FIXME: implement this
       //rt_missmsg(RTM_LOSING, &info, rt->rt_flags, 0);
 
       if (rt->rt_flags & RTF_DYNAMIC)

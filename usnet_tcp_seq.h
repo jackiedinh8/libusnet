@@ -37,6 +37,7 @@
 #define USNET_TCP_SEQ_H_
 
 #include "usnet_types.h"
+#include "usnet_tcp.h"
 
 /*
  * TCP sequence numbers are 32 bit integers operated
@@ -75,7 +76,7 @@
 
 #define	TCP_ISSINCR	(122*1024 + tcp_random18())
 
-tcp_seq	tcp_iss;		/* tcp initial send seq # */
+extern tcp_seq g_tcp_iss;		/* tcp initial send seq # */
 
 
 #endif //USNET_TCP_SEQ_H_

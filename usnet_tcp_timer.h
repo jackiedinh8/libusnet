@@ -36,6 +36,8 @@
 #ifndef USNET_TCP_TIMER_H_
 #define USNET_TCP_TIMER_H_
 
+#include "usnet_protosw.h"
+
 /*
  * Definitions of the TCP timers.  These timers are counted
  * down PR_SLOWHZ times a second.
@@ -87,12 +89,11 @@
  * Time constants.
  */
 #define	TCPTV_MSL	( 30*PR_SLOWHZ)		/* max seg lifetime (hah!) */
-#define	TCPTV_SRTTBASE	0			/* base roundtrip time;
-						   if 0, no idea yet */
-#define	TCPTV_SRTTDFLT	(  3*PR_SLOWHZ)		/* assumed RTT if no info */
+#define	TCPTV_SRTTBASE	0 /* base roundtrip time; if 0, no idea yet */
+#define	TCPTV_SRTTDFLT	(3*PR_SLOWHZ)		/* assumed RTT if no info */
 
-#define	TCPTV_PERSMIN	(  5*PR_SLOWHZ)		/* retransmit persistance */
-#define	TCPTV_PERSMAX	( 60*PR_SLOWHZ)		/* maximum persist interval */
+#define	TCPTV_PERSMIN ( 5*PR_SLOWHZ)		/* retransmit persistance */
+#define	TCPTV_PERSMAX (60*PR_SLOWHZ)		/* maximum persist interval */
 
 #define	TCPTV_KEEP_INIT	( 75*PR_SLOWHZ)		/* initial connect keep alive */
 #define	TCPTV_KEEP_IDLE	(120*60*PR_SLOWHZ)	/* dflt time before probing */
@@ -122,11 +123,12 @@ char *tcptimers[] =
 		(tv) = (tvmax); \
 }
 
-extern int tcp_keepidle;		/* time before keepalive probes begin */
-extern int tcp_keepintvl;		/* time between keepalive probes */
-extern int tcp_maxidle;			/* time to drop after starting probes */
-extern int tcp_ttl;			/* time to live for TCP segs */
-extern int tcp_backoff[];
+extern int g_tcp_keepidle;		/* time before keepalive probes begin */
+extern int g_tcp_keepintvl;		/* time between keepalive probes */
+extern int g_tcp_keepcnt;		/* max idle probes */
+extern int g_tcp_maxidle;			/* time to drop after starting probes */
+extern int g_tcp_ttl;			/* time to live for TCP segs */
+extern int g_tcp_backoff[];
 
 
 #endif //USNET_TCP_TIMER_H_

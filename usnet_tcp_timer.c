@@ -33,42 +33,19 @@
  *	@(#)tcp_timer.c	8.2 (Berkeley) 5/24/95
  */
 
-#ifndef TUBA_INCLUDE
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/malloc.h>
-#include <sys/mbuf.h>
-#include <sys/socket.h>
-#include <sys/socketvar.h>
-#include <sys/protosw.h>
-#include <sys/errno.h>
+#include "usnet_common.h"
+#include "usnet_tcp.h"
+#include "usnet_tcp_timer.h"
+#include "usnet_tcp_var.h"
+#include "usnet_tcp_fsm.h"
+#include "usnet_tcp_seq.h"
 
-#include <machine/cpu.h>	/* before tcp_seq.h, for tcp_random18() */
 
-#include <net/if.h>
-#include <net/route.h>
-
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/in_pcb.h>
-#include <netinet/ip_var.h>
-#include <netinet/tcp.h>
-#include <netinet/tcp_fsm.h>
-#include <netinet/tcp_seq.h>
-#include <netinet/tcp_timer.h>
-#include <netinet/tcp_var.h>
-#include <netinet/tcpip.h>
-
-int	tcp_keepidle = TCPTV_KEEP_IDLE;
-int	tcp_keepintvl = TCPTV_KEEPINTVL;
-int	tcp_keepcnt = TCPTV_KEEPCNT;		/* max idle probes */
-int	tcp_maxpersistidle = TCPTV_KEEP_IDLE;	/* max idle time in persist */
-int	tcp_maxidle;
-#else /* TUBA_INCLUDE */
-
-extern	int tcp_maxpersistidle;
-#endif /* TUBA_INCLUDE */
+int	g_tcp_keepidle = TCPTV_KEEP_IDLE;
+int	g_tcp_keepintvl = TCPTV_KEEPINTVL;
+int	g_tcp_keepcnt = TCPTV_KEEPCNT;		/* max idle probes */
+int	g_tcp_maxpersistidle = TCPTV_KEEP_IDLE;	/* max idle time in persist */
+int	g_tcp_maxidle;
 
 /*
  * Fast timeout routine for processing delayed acks
@@ -76,21 +53,23 @@ extern	int tcp_maxpersistidle;
 void
 tcp_fasttimo()
 {
-	register struct inpcb *inp;
-	register struct tcpcb *tp;
-	int s = splnet();
+	struct inpcb *inp;
+	struct tcpcb *tp;
+	//int s = splnet();
 
-	inp = tcb.inp_next;
-	if (inp)
-	for (; inp != &tcb; inp = inp->inp_next)
-		if ((tp = (struct tcpcb *)inp->inp_ppcb) &&
-		    (tp->t_flags & TF_DELACK)) {
-			tp->t_flags &= ~TF_DELACK;
-			tp->t_flags |= TF_ACKNOW;
-			tcpstat.tcps_delack++;
-			(void) tcp_output(tp);
-		}
-	splx(s);
+	inp = g_tcb.inp_next;
+	if (inp) {
+	   for (; inp != &g_tcb; inp = inp->inp_next)
+	   	if ((tp = (struct tcpcb *)inp->inp_ppcb) &&
+	   	    (tp->t_flags & TF_DELACK)) {
+	   		tp->t_flags &= ~TF_DELACK;
+	   		tp->t_flags |= TF_ACKNOW;
+	   		g_tcpstat.tcps_delack++;
+	   		(void) tcp_output(tp);
+	   	}
+   }
+	//splx(s);
+
 }
 
 /*
@@ -101,21 +80,22 @@ tcp_fasttimo()
 void
 tcp_slowtimo()
 {
-	register struct inpcb *ip, *ipnxt;
-	register struct tcpcb *tp;
-	int s = splnet();
-	register int i;
+	struct inpcb *ip, *ipnxt;
+	struct tcpcb *tp;
+	//int s = splnet();
+	u_long i;
 
-	tcp_maxidle = tcp_keepcnt * tcp_keepintvl;
+	//tcp_maxidle = tcp_keepcnt * tcp_keepintvl;
 	/*
 	 * Search through tcb's and update active timers.
 	 */
-	ip = tcb.inp_next;
+	ip = g_tcb.inp_next;
 	if (ip == 0) {
-		splx(s);
+		//splx(s);
+      goto update;
 		return;
 	}
-	for (; ip != &tcb; ip = ipnxt) {
+	for (; ip != &g_tcb; ip = ipnxt) {
 		ipnxt = ip->inp_next;
 		tp = intotcpcb(ip);
 		if (tp == 0 || tp->t_state == TCPS_LISTEN)
@@ -123,8 +103,8 @@ tcp_slowtimo()
 		for (i = 0; i < TCPT_NTIMERS; i++) {
 			if (tp->t_timer[i] && --tp->t_timer[i] == 0) {
 				(void) tcp_usrreq(tp->t_inpcb->inp_socket,
-				    PRU_SLOWTIMO, (struct mbuf *)0,
-				    (struct mbuf *)i, (struct mbuf *)0);
+				    PRU_SLOWTIMO, (usn_mbuf_t *)0,
+				    (usn_mbuf_t *)i, (usn_mbuf_t *)0);
 				if (ipnxt->inp_prev != ip)
 					goto tpgone;
 			}
@@ -135,43 +115,41 @@ tcp_slowtimo()
 tpgone:
 		;
 	}
-	tcp_iss += TCP_ISSINCR/PR_SLOWHZ;		/* increment iss */
+
+update:
+	g_tcp_iss += TCP_ISSINCR/PR_SLOWHZ;		/* increment iss */
 #ifdef TCP_COMPAT_42
 	if ((int)tcp_iss < 0)
-		tcp_iss = TCP_ISSINCR;			/* XXX */
+		g_tcp_iss = TCP_ISSINCR;			/* XXX */
 #endif
-	tcp_now++;					/* for timestamps */
-	splx(s);
+	g_tcp_now++;					/* for timestamps */
+	//splx(s);
 }
-#ifndef TUBA_INCLUDE
 
 /*
  * Cancel all timers for TCP tp.
  */
 void
-tcp_canceltimers(tp)
-	struct tcpcb *tp;
+tcp_canceltimers(struct tcpcb *tp)
 {
-	register int i;
-
+	int i;
 	for (i = 0; i < TCPT_NTIMERS; i++)
 		tp->t_timer[i] = 0;
+   return;
 }
 
-int	tcp_backoff[TCP_MAXRXTSHIFT + 1] =
+int g_tcp_backoff[TCP_MAXRXTSHIFT + 1] =
     { 1, 2, 4, 8, 16, 32, 64, 64, 64, 64, 64, 64, 64 };
 
-int tcp_totbackoff = 511;	/* sum of tcp_backoff[] */
+int g_tcp_totbackoff = 511;	/* sum of tcp_backoff[] */
 
 /*
  * TCP timer processing.
  */
-struct tcpcb *
-tcp_timers(tp, timer)
-	register struct tcpcb *tp;
-	int timer;
+struct tcpcb*
+tcp_timers(struct tcpcb *tp, int timer)
 {
-	register int rexmt;
+	int rexmt;
 
 	switch (timer) {
 
@@ -180,11 +158,12 @@ tcp_timers(tp, timer)
 	 * still waiting for peer to close and connection has been idle
 	 * too long, or if 2MSL time is up from TIME_WAIT, delete connection
 	 * control block.  Otherwise, check again in a bit.
+    * If TIME_WAIT is not set, this is FIN_WAIT_2 timer.
 	 */
 	case TCPT_2MSL:
 		if (tp->t_state != TCPS_TIME_WAIT &&
-		    tp->t_idle <= tcp_maxidle)
-			tp->t_timer[TCPT_2MSL] = tcp_keepintvl;
+		    tp->t_idle <= g_tcp_maxidle)
+			tp->t_timer[TCPT_2MSL] = g_tcp_keepintvl;
 		else
 			tp = tcp_close(tp);
 		break;
@@ -197,13 +176,13 @@ tcp_timers(tp, timer)
 	case TCPT_REXMT:
 		if (++tp->t_rxtshift > TCP_MAXRXTSHIFT) {
 			tp->t_rxtshift = TCP_MAXRXTSHIFT;
-			tcpstat.tcps_timeoutdrop++;
+			g_tcpstat.tcps_timeoutdrop++;
 			tp = tcp_drop(tp, tp->t_softerror ?
 			    tp->t_softerror : ETIMEDOUT);
 			break;
 		}
-		tcpstat.tcps_rexmttimeo++;
-		rexmt = TCP_REXMTVAL(tp) * tcp_backoff[tp->t_rxtshift];
+		g_tcpstat.tcps_rexmttimeo++;
+		rexmt = TCP_REXMTVAL(tp) * g_tcp_backoff[tp->t_rxtshift];
 		TCPT_RANGESET(tp->t_rxtcur, rexmt,
 		    tp->t_rttmin, TCPTV_REXMTMAX);
 		tp->t_timer[TCPT_REXMT] = tp->t_rxtcur;
@@ -265,7 +244,7 @@ tcp_timers(tp, timer)
 	 * Force a byte to be output, if possible.
 	 */
 	case TCPT_PERSIST:
-		tcpstat.tcps_persisttimeo++;
+		g_tcpstat.tcps_persisttimeo++;
 		/*
 		 * Hack: if the peer is dead/unreachable, we do not
 		 * time out if the window is closed.  After a full
@@ -274,9 +253,9 @@ tcp_timers(tp, timer)
 		 * backoff that we would use if retransmitting.
 		 */
 		if (tp->t_rxtshift == TCP_MAXRXTSHIFT &&
-		    (tp->t_idle >= tcp_maxpersistidle ||
-		    tp->t_idle >= TCP_REXMTVAL(tp) * tcp_totbackoff)) {
-			tcpstat.tcps_persistdrop++;
+		    (tp->t_idle >= g_tcp_maxpersistidle ||
+		    tp->t_idle >= TCP_REXMTVAL(tp) * g_tcp_totbackoff)) {
+			g_tcpstat.tcps_persistdrop++;
 			tp = tcp_drop(tp, ETIMEDOUT);
 			break;
 		}
@@ -291,13 +270,13 @@ tcp_timers(tp, timer)
 	 * or drop connection if idle for too long.
 	 */
 	case TCPT_KEEP:
-		tcpstat.tcps_keeptimeo++;
-		if (tp->t_state < TCPS_ESTABLISHED)
+		g_tcpstat.tcps_keeptimeo++;
+		if (tp->t_state < TCPS_ESTABLISHED) // connection-establishment timer.
 			goto dropit;
 		if (tp->t_inpcb->inp_socket->so_options & SO_KEEPALIVE &&
-		    tp->t_state <= TCPS_CLOSE_WAIT) {
-		    	if (tp->t_idle >= tcp_keepidle + tcp_maxidle)
-				goto dropit;
+		    tp->t_state <= TCPS_CLOSE_WAIT) { // keepalive timer.
+		    	if (tp->t_idle >= g_tcp_keepidle + g_tcp_maxidle)
+				   goto dropit;
 			/*
 			 * Send a packet designed to force a response
 			 * if the peer is up and reachable:
@@ -310,27 +289,18 @@ tcp_timers(tp, timer)
 			 * by the protocol spec, this requires the
 			 * correspondent TCP to respond.
 			 */
-			tcpstat.tcps_keepprobe++;
-#ifdef TCP_COMPAT_42
-			/*
-			 * The keepalive packet must have nonzero length
-			 * to get a 4.2 host to respond.
-			 */
-			tcp_respond(tp, tp->t_template, (struct mbuf *)NULL,
-			    tp->rcv_nxt - 1, tp->snd_una - 1, 0);
-#else
-			tcp_respond(tp, tp->t_template, (struct mbuf *)NULL,
+			g_tcpstat.tcps_keepprobe++;
+			tcp_respond(tp, tp->t_template, (usn_mbuf_t *)NULL,
 			    tp->rcv_nxt, tp->snd_una - 1, 0);
-#endif
-			tp->t_timer[TCPT_KEEP] = tcp_keepintvl;
+			tp->t_timer[TCPT_KEEP] = g_tcp_keepintvl;
 		} else
-			tp->t_timer[TCPT_KEEP] = tcp_keepidle;
+			tp->t_timer[TCPT_KEEP] = g_tcp_keepidle;
 		break;
 	dropit:
-		tcpstat.tcps_keepdrops++;
+		g_tcpstat.tcps_keepdrops++;
 		tp = tcp_drop(tp, ETIMEDOUT);
 		break;
 	}
 	return (tp);
 }
-#endif /* TUBA_INCLUDE */
+//#endif /* TUBA_INCLUDE */

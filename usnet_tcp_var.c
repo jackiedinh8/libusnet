@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 1982, 1986, 1993
- *	The Regents of the University of California.  All rights reserved.
+ * Copyright (c) 2014 Jackie Dinh <jackiedinh8@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,12 +11,6 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
  * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -30,38 +23,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)tcpip.h	8.1 (Berkeley) 6/10/93
+ * @(#)usnet_tcp_var.c
  */
 
-#ifndef USNET_TCPIP_H_
-#define USNET_TCPIP_H_
 
-#include "usnet_ip.h"
-#include "usnet_tcp.h"
+#include "usnet_tcp_var.h"
 
-/*
- * Tcp+ip header, after ip options removed.
- */
-struct tcpiphdr {
-	struct 	ipovly ti_i;		/* overlaid ip structure */
-	struct	tcphdr ti_t;		/* tcp header */
-};
-#define	ti_next		ti_i.ih_next
-#define	ti_prev		ti_i.ih_prev
-#define	ti_x1		ti_i.ih_x1
-#define	ti_pr		ti_i.ih_pr
-#define	ti_len		ti_i.ih_len
-#define	ti_src		ti_i.ih_src
-#define	ti_dst		ti_i.ih_dst
-#define	ti_sport	ti_t.th_sport
-#define	ti_dport	ti_t.th_dport
-#define	ti_seq		ti_t.th_seq
-#define	ti_ack		ti_t.th_ack
-#define	ti_x2		ti_t.th_x2
-#define	ti_off		ti_t.th_off
-#define	ti_flags	ti_t.th_flags
-#define	ti_win		ti_t.th_win
-#define	ti_sum		ti_t.th_sum
-#define	ti_urp		ti_t.th_urp
-
-#endif //USNET_TCPIP_H_
+struct inpcb   g_tcb;		/* head of queue of active tcpcb's */
+struct tcpstat g_tcpstat;	/* tcp statistics */
+u_long         g_tcp_now;  /* for RFC 1323 timestamps */

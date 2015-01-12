@@ -33,7 +33,6 @@
  *	@(#)tcp_subr.c	8.2 (Berkeley) 5/24/95
  */
 
-//#include "usnet_tcp_subr.h"
 #include "usnet_tcp.h"
 #include "usnet_tcpip.h"
 #include "usnet_tcp_seq.h"
@@ -61,15 +60,18 @@ extern struct inpcb *g_tcp_last_inpcb;
 void
 tcp_init()
 {
-	tcp_iss = random();	/* wrong, but better than a constant */
+	g_tcp_iss = random();	/* wrong, but better than a constant */
 
-	tcb.inp_next = tcb.inp_prev = &tcb;
+	g_tcb.inp_next = g_tcb.inp_prev = &g_tcb;
 
 	if (g_max_protohdr < sizeof(struct tcpiphdr))
 		g_max_protohdr = sizeof(struct tcpiphdr);
    // FIXME: it's always false for ethernet frame
 	if (g_max_linkhdr + sizeof(struct tcpiphdr) > BUF_MSIZE)
 		DEBUG("tcp_init"); // panic
+
+   // from tcp_slowtimo
+	g_tcp_maxidle = g_tcp_keepcnt * g_tcp_keepintvl;
 }
 
 /*
@@ -195,21 +197,23 @@ tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
  * empty reassembly queue and hooking it to the argument
  * protocol control block.
  */
-struct tcpcb *
+struct tcpcb*
 tcp_newtcpcb( struct inpcb *inp)
 {
-   return NULL;
-   /*
 	struct tcpcb *tp;
 
-	tp = malloc(sizeof(*tp), M_PCB, M_NOWAIT);
+	//tp = malloc(sizeof(*tp), M_PCB, M_NOWAIT);
+	tp = (struct tcpcb*)usn_get_buf(0,sizeof(*tp));
+
 	if (tp == NULL)
 		return ((struct tcpcb *)0);
-	bzero((char *) tp, sizeof(struct tcpcb));
-	tp->seg_next = tp->seg_prev = (struct tcpiphdr *)tp;
-	tp->t_maxseg = tcp_mssdflt;
 
-	tp->t_flags = tcp_do_rfc1323 ? (TF_REQ_SCALE|TF_REQ_TSTMP) : 0;
+	bzero((char *) tp, sizeof(struct tcpcb));
+
+	tp->seg_next = tp->seg_prev = (struct tcpiphdr *)tp;
+	tp->t_maxseg = g_tcp_mssdflt;
+
+	tp->t_flags = g_tcp_do_rfc1323 ? (TF_REQ_SCALE|TF_REQ_TSTMP) : 0;
 	tp->t_inpcb = inp;
 
 	 // Init srtt to TCPTV_SRTTBASE (0), so we can tell that we have no
@@ -217,17 +221,16 @@ tcp_newtcpcb( struct inpcb *inp)
 	 // reasonable initial retransmit time.
 
 	tp->t_srtt = TCPTV_SRTTBASE;
-	tp->t_rttvar = tcp_rttdflt * PR_SLOWHZ << 2;
+	tp->t_rttvar = g_tcp_rttdflt * PR_SLOWHZ << 2;
 	tp->t_rttmin = TCPTV_MIN;
 	TCPT_RANGESET(tp->t_rxtcur, 
 	    ((TCPTV_SRTTBASE >> 2) + (TCPTV_SRTTDFLT << 2)) >> 1,
 	    TCPTV_MIN, TCPTV_REXMTMAX);
 	tp->snd_cwnd = TCP_MAXWIN << TCP_MAX_WINSHIFT;
 	tp->snd_ssthresh = TCP_MAXWIN << TCP_MAX_WINSHIFT;
-	inp->inp_ip.ip_ttl = ip_defttl;
+	inp->inp_ip.ip_ttl = g_ip_defttl;
 	inp->inp_ppcb = (caddr_t)tp;
 	return (tp);
-   */
 }
 
 /*

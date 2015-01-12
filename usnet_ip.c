@@ -56,6 +56,7 @@
 #define  IPSENDREDIRECTS   1
 int g_ipsendredirects;// = IPSENDREDIRECTS;
 int g_ipforwarding;// = IPFORWARDING;
+int g_ip_defttl = IPDEFTTL;
 u_short  g_ip_id;            /* ip packet ctr, for ids */
 
 void 

@@ -59,6 +59,8 @@ usn_get_buf(u_char* buf, int size)
    if (p) {
       if (buf) 
          memcpy(p, buf, size);
+      //else
+      //   memset(p, 0, size);
    }
    else {
       // bad
