@@ -33,9 +33,13 @@
  *	@(#)tcp_input.c	8.12 (Berkeley) 5/24/95
  */
 
+#include "usnet_common.h"
 #include "usnet_buf.h"
+#include "usnet_if.h"
 #include "usnet_tcpip.h"
 #include "usnet_tcp_var.h"
+#include "usnet_tcp_subr.h"
+#include "usnet_route.h"
 
 //int g_tcprexmtthresh = 3;
 //struct	tcpiphdr g_tcp_saveti;
@@ -1496,45 +1500,43 @@ tcp_xmit_timer(struct tcpcb *tp, int rtt)
 int
 tcp_mss(struct tcpcb *tp, u_int offer)
 {
-   return 0;
-   /*
 	struct route *ro;
-	register struct rtentry *rt;
+	struct rtentry *rt;
 	struct ifnet *ifp;
 	register int rtt, mss;
 	u_long bufsize;
 	struct inpcb *inp;
-	struct socket *so;
-	extern int tcp_mssdflt;
+	struct usn_socket *so;
+	//extern int g_tcp_mssdflt;
 
 	inp = tp->t_inpcb;
 	ro = &inp->inp_route;
 
 	if ((rt = ro->ro_rt) == (struct rtentry *)0) {
 		// No route yet, so try to acquire one
-		if (inp->inp_faddr.s_addr != INADDR_ANY) {
+		if (inp->inp_faddr.s_addr != USN_INADDR_ANY) {
 			ro->ro_dst.sa_family = AF_INET;
 			ro->ro_dst.sa_len = sizeof(ro->ro_dst);
-			((struct sockaddr_in *) &ro->ro_dst)->sin_addr =
+			((struct usn_sockaddr_in *) &ro->ro_dst)->sin_addr =
 				inp->inp_faddr;
 			rtalloc(ro);
 		}
 		if ((rt = ro->ro_rt) == (struct rtentry *)0)
-			return (tcp_mssdflt);
+			return (g_tcp_mssdflt);
 	}
 	ifp = rt->rt_ifp;
 	so = inp->inp_socket;
 
 #ifdef RTV_MTU	// if route characteristics exist ... 
 
-	 * While we're here, check if there's an initial rtt
-	 * or rttvar.  Convert from the route-table units
-	 * to scaled multiples of the slow timeout timer.
+	 // While we're here, check if there's an initial rtt
+	 // or rttvar.  Convert from the route-table units
+	 // to scaled multiples of the slow timeout timer.
 
 	if (tp->t_srtt == 0 && (rtt = rt->rt_rmx.rmx_rtt)) {
 
-		 * XXX the lock bit for MTU indicates that the value
-		 * is also a minimum value; this is subject to time.
+		 // XXX the lock bit for MTU indicates that the value
+		 // is also a minimum value; this is subject to time.
 
 		if (rt->rt_rmx.rmx_locks & RTV_RTT)
 			tp->t_rttmin = rtt / (RTM_RTTUNIT / PR_SLOWHZ);
@@ -1551,7 +1553,7 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 		    tp->t_rttmin, TCPTV_REXMTMAX);
 	}
 
-	 * if there's an mtu associated with the route, use it
+	 // if there's an mtu associated with the route, use it
 
 	if (rt->rt_rmx.rmx_mtu)
 		mss = rt->rt_rmx.rmx_mtu - sizeof(struct tcpiphdr);
@@ -1567,25 +1569,25 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 			mss = mss / MCLBYTES * MCLBYTES;
 #endif
 		if (!in_localaddr(inp->inp_faddr))
-			mss = min(mss, tcp_mssdflt);
+			mss = min(mss, g_tcp_mssdflt);
 	}
 
-	 * The current mss, t_maxseg, is initialized to the default value.
-	 * If we compute a smaller value, reduce the current mss.
-	 * If we compute a larger value, return it for use in sending
-	 * a max seg size option, but don't store it for use
-	 * unless we received an offer at least that large from peer.
-	 * However, do not accept offers under 32 bytes.
+	 // The current mss, t_maxseg, is initialized to the default value.
+	 // If we compute a smaller value, reduce the current mss.
+	 // If we compute a larger value, return it for use in sending
+	 // a max seg size option, but don't store it for use
+	 // unless we received an offer at least that large from peer.
+	 // However, do not accept offers under 32 bytes.
 
 	if (offer)
 		mss = min(mss, offer);
 	mss = max(mss, 32);		// sanity
 	if (mss < tp->t_maxseg || offer != 0) {
 
-		 * If there's a pipesize, change the socket buffer
-		 * to that size.  Make the socket buffers an integral
-		 * number of mss units; if the mss is larger than
-		 * the socket buffer, decrease the mss.
+		 // If there's a pipesize, change the socket buffer
+		 // to that size.  Make the socket buffers an integral
+		 // number of mss units; if the mss is larger than
+		 // the socket buffer, decrease the mss.
 
 #ifdef RTV_SPIPE
 		if ((bufsize = rt->rt_rmx.rmx_sendpipe) == 0)
@@ -1595,8 +1597,8 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 			mss = bufsize;
 		else {
 			bufsize = roundup(bufsize, mss);
-			if (bufsize > sb_max)
-				bufsize = sb_max;
+			if (bufsize > g_sb_max)
+				bufsize = g_sb_max;
 			(void)sbreserve(&so->so_snd, bufsize);
 		}
 		tp->t_maxseg = mss;
@@ -1607,8 +1609,8 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 			bufsize = so->so_rcv.sb_hiwat;
 		if (bufsize > mss) {
 			bufsize = roundup(bufsize, mss);
-			if (bufsize > sb_max)
-				bufsize = sb_max;
+			if (bufsize > g_sb_max)
+				bufsize = g_sb_max;
 			(void)sbreserve(&so->so_rcv, bufsize);
 		}
 	}
@@ -1617,16 +1619,15 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 #ifdef RTV_SSTHRESH
 	if (rt->rt_rmx.rmx_ssthresh) {
 
-		 * There's some sort of gateway or interface
-		 * buffer limit on the path.  Use this to set
-		 * the slow start threshhold, but set the
-		 * threshold to no less than 2*mss.
+		 // There's some sort of gateway or interface
+		 // buffer limit on the path.  Use this to set
+		 // the slow start threshhold, but set the
+		 // threshold to no less than 2*mss.
 
 		tp->snd_ssthresh = max(2 * mss, rt->rt_rmx.rmx_ssthresh);
 	}
 #endif // RTV_MTU
 	return (mss);
-   */
 }
 
 

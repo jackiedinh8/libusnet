@@ -58,19 +58,17 @@
 #define	TCPS_HAVERCVDSYN(s)	((s) >= TCPS_SYN_RECEIVED)
 #define	TCPS_HAVERCVDFIN(s)	((s) >= TCPS_TIME_WAIT)
 
-#ifdef	TCPOUTFLAGS
 /*
  * Flags used when sending segments in tcp_output.
  * Basic flags (TH_RST,TH_ACK,TH_SYN,TH_FIN) are totally
  * determined by state, with the proviso that TH_FIN is sent only
  * if all data queued for output is included in the segment.
  */
-u_char	tcp_outflags[TCP_NSTATES] = {
+u_char	g_tcp_outflags[TCP_NSTATES] = {
     TH_RST|TH_ACK, 0, TH_SYN, TH_SYN|TH_ACK,
     TH_ACK, TH_ACK,
     TH_FIN|TH_ACK, TH_FIN|TH_ACK, TH_FIN|TH_ACK, TH_ACK, TH_ACK,
 };
-#endif
 
 #ifdef KPROF
 int	tcp_acounts[TCP_NSTATES][PRU_NREQ];

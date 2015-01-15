@@ -33,6 +33,7 @@
  *	@(#)tcp_subr.c	8.2 (Berkeley) 5/24/95
  */
 
+#include "usnet_tcp_subr.h"
 #include "usnet_tcp.h"
 #include "usnet_tcpip.h"
 #include "usnet_tcp_seq.h"
@@ -48,6 +49,8 @@ int 	g_tcp_mssdflt = TCP_MSS;
 int 	g_tcp_rttdflt = TCPTV_SRTTDFLT / PR_SLOWHZ;
 int	g_tcp_do_rfc1323 = 1;
 int   g_max_linkhdr;         /* largest link-level header */
+int   g_max_iphdr;         /* largest ip header */
+int   g_max_tcphdr;         /* largest tcp header */
 int   g_max_protohdr;        /* largest protocol header */
 int   g_max_hdr;       /* largest link+protocol header */
 int   g_max_datalen;         /* MHLEN - max_hdr */
@@ -72,6 +75,15 @@ tcp_init()
 
    // from tcp_slowtimo
 	g_tcp_maxidle = g_tcp_keepcnt * g_tcp_keepintvl;
+
+   g_max_linkhdr = 16;
+   g_max_iphdr = 60;
+   g_max_tcphdr = 60;
+   //g_max_protohdr = 0;
+   //g_max_hdr = 0;
+   //g_max_datalen = 0;         /* MHLEN - max_hdr */
+
+
 }
 
 /*

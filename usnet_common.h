@@ -1,3 +1,6 @@
+#ifndef _USNET_COMMON_H_
+#define _USNET_COMMON_H_
+
 /*
  * Address families.
  */
@@ -70,3 +73,7 @@
 }
 
 #define min(x,y) ((x) < (y) ? (x) : (y))
+#define max(x,y) ((x) < (y) ? (y) : (x))
+
+
+#endif //_USNET_COMMON_H_

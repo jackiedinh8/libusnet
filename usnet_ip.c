@@ -323,7 +323,7 @@ ip_forward(usn_mbuf_t *m, int srcrt)
     * we need to generate an ICMP message to the src.
     */
 #define imin(x,y)  ((x) > (y) ? (y) : (x))
-   mcopy = usn_mbuf_copy(m, 0, imin((int)ip->ip_len, 64));
+   mcopy = usn_copy_data(m, 0, imin((int)ip->ip_len, 64));
 
    /*
     * If forwarding packet using same interface that it came in on,

@@ -1,12 +1,39 @@
+/*
+ * Copyright (c) 2014 Jackie Dinh <jackiedinh8@gmail.com>
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ * @(#)usnet_buf.c
+ */
+
 #include "usnet_buf.h"
 #include "usnet_slab.h"
 #include "usnet_log.h"
-
+#include "usnet_common.h"
 
 void
 usn_free_buf(u_char *m)
 {
-   // XXX free a buffer
    if ( m == NULL )
       return;
 
@@ -19,7 +46,6 @@ usn_free_buf(u_char *m)
 void
 usn_free_mbuf(usn_mbuf_t *m)
 {
-   // XXX free a buffer
    if ( m == NULL )
       return;
    m->refs--;
@@ -156,9 +182,8 @@ m_adj( usn_mbuf_t *mp, int req_len)
    if ((m = mp) == NULL)
       return;
    if (len >= 0) {
-      /*
-       * Trim from head.
-       */
+   
+      // Trim from head.
       while (m != NULL && len > 0) {
          if ( m->tail - m->head  <= len) {
             len -= m->tail - m->head;
@@ -172,16 +197,8 @@ m_adj( usn_mbuf_t *mp, int req_len)
          }
       }
       m = mp;
-      //if (mp->flags & M_PKTHDR)
-      //   m->m_pkthdr.len -= (req_len - len);
    } else {
-      /*
-       * Trim from tail.  Scan the mbuf chain,
-       * calculating its length and finding the last mbuf.
-       * If the adjustment only affects this mbuf, then just
-       * adjust and return.  Otherwise, rescan and truncate
-       * after the remaining size.
-       */
+      // Trim from tail.
       len = -len;
       count = 0;
       for (;;) {
@@ -223,11 +240,85 @@ m_pullup(usn_mbuf_t *m, int len)
    return m;
 }
 
-inline usn_mbuf_t* 
-usn_mbuf_copy(usn_mbuf_t *m, int off, int len)
+// create a new mbuf and copy len of bytes from m.
+usn_mbuf_t* 
+usn_copy_data(usn_mbuf_t *m, int off0, int len)
 {
-   // XXX create a new mbuf and copy len of bytes
-   // from m.
-   return m;
+   usn_mbuf_t *n, **np;
+   int off = off0;
+   usn_mbuf_t *top;
+   //int copyhdr = 0;
+
+   if (off < 0 || len < 0) {
+      //DEBUG("invalid len or offset");
+      return 0;
+   }
+
+   while (off > 0) {
+      if (m == 0) {
+         return 0;
+      }
+      if (off < m->mlen)
+         break;
+      off -= m->mlen;
+      m = m->next;
+   }
+
+   np = &top;
+   top = 0;
+   while (len > 0) {
+
+      if (m == 0) 
+         break;
+
+      n = (usn_mbuf_t*)usn_get_mbuf(0, BUF_MSIZE, 0);
+      *np = n;
+      if (n == 0)
+         goto nospace;
+
+      // TODO: large buffer
+      n->mlen = min(len, m->mlen - off);
+      bcopy(mtod(m, caddr_t)+off, mtod(n, caddr_t), n->mlen);
+      len -= n->mlen;
+      off = 0;
+      m = m->next;
+      np = &n->next;
+   }
+   return (top);
+nospace:
+   usn_free_mbuf(top);
+   return (0);
+}
+
+void
+usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp)
+{
+   u_int32 count;
+
+   if (off < 0 || len < 0) {
+      DEBUG("invalid len or offset");
+      return;
+   }
+
+   while (off > 0) {
+      if (m == 0) {
+         return;
+      }
+      if (off < m->mlen)
+         break;
+      off -= m->mlen;
+      m = m->next;
+   }   
+   while (len > 0) {
+      if (m == 0) {
+         break;
+      }
+      count = min(m->mlen - off, len);
+      bcopy(mtod(m, caddr_t) + off, cp, count);
+      len -= count;
+      cp += count;
+      off = 0;
+      m = m->next;
+   }   
 }
 

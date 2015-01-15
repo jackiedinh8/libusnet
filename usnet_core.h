@@ -41,7 +41,6 @@
 
 #include "usnet_buf.h"
 #include "usnet_slab.h"
-//#include "usnet_socket.h"
 
 extern struct nm_desc  *g_nmd;
 extern usn_slab_pool_t *g_slab_pool;

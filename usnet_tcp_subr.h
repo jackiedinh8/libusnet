@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 1982, 1986, 1993
- *	The Regents of the University of California.  All rights reserved.
+ * Copyright (c) 2014 Jackie Dinh <jackiedinh8@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,12 +11,6 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
  * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -30,32 +23,17 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	@(#)tcp_debug.h	8.1 (Berkeley) 6/10/93
+ * @(#)usnet_tcp_subr.h
  */
 
-#include "usnet_types.h"
 
-struct	tcp_debug {
-	u_long	td_time;
-	short	td_act;
-	short	td_ostate;
-	caddr_t	td_tcb;
-	struct	tcpiphdr td_ti;
-	short	td_req;
-	struct	tcpcb td_cb;
-};
+#ifndef USNET_TCP_SUBR_H_
+#define USNET_TCP_SUBR_H_
 
-#define	TA_INPUT 	0
-#define	TA_OUTPUT	1
-#define	TA_USER		2
-#define	TA_RESPOND	3
-#define	TA_DROP		4
+extern int g_tcp_mssdflt;
 
-#ifdef TANAMES
-char	*tanames[] =
-    { "input", "output", "user", "respond", "drop" };
-#endif
-
-#define	TCP_NDEBUG 100
-struct	tcp_debug tcp_debug[TCP_NDEBUG];
-int	tcp_debx;
+extern int   g_max_linkhdr;         /* largest link-level header */
+extern int   g_max_iphdr;         /* largest ip header */
+extern int   g_max_tcphdr;         /* largest tcp header */
+extern int   g_max_protohdr;        /* largest protocol header */
+#endif // USNET_TCP_SUBR_H_

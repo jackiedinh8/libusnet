@@ -40,7 +40,7 @@
 #define	TCPTIMERS
 #define	TANAMES
 #endif
-
+/*
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/mbuf.h>
@@ -64,6 +64,7 @@
 #include <netinet/tcp_var.h>
 #include <netinet/tcpip.h>
 #include <netinet/tcp_debug.h>
+*/
 
 #ifdef TCPDEBUG
 int	tcpconsdebug = 0;
@@ -72,11 +73,8 @@ int	tcpconsdebug = 0;
  * Tcp debug routines
  */
 void
-tcp_trace(act, ostate, tp, ti, req)
-	short act, ostate;
-	struct tcpcb *tp;
-	struct tcpiphdr *ti;
-	int req;
+tcp_trace( short act, short ostate, struct tcpcb *tp, 
+           struct tcpiphdr *ti, int req)
 {
 	tcp_seq seq, ack;
 	int len, flags;
