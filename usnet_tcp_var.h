@@ -178,7 +178,7 @@ struct tcpcb {
  * port numbers (which are no longer needed once we've located the
  * tcpcb) are overlayed with an mbuf pointer.
  */
-#define REASS_MBUF(ti) (*(struct mbuf **)&((ti)->ti_t))
+#define REASS_MBUF(ti) (*(usn_mbuf_t **)&((ti)->ti_t))
 
 /*
  * TCP statistics.

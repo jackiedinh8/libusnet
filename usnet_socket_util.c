@@ -116,3 +116,45 @@ bad:
    return -1;// no buffer available: (ENOBUFS);
 }
 
+void
+soisdisconnected(struct usn_socket *so)
+{
+   so->so_state &= ~(USN_ISCONNECTING|USN_ISCONNECTED|USN_ISDISCONNECTING);
+   so->so_state |= (USN_CANTRCVMORE|USN_CANTSENDMORE);
+
+   // FIXME: fix callbacks
+   //wakeup((caddr_t)&so->so_timeo);
+   //sowwakeup(so);
+   //sorwakeup(so);
+}
+
+/*
+ * Append mbuf chain m to the last record in the
+ * socket buffer sb.  The additional space associated
+ * the mbuf chain is recorded in sb.  Empty mbufs are
+ * discarded and mbufs are compacted where possible.
+ */
+void    
+sbappend(struct sockbuf *sb, usn_mbuf_t *m)
+{
+   return;
+   //FIXME
+/*
+   usn_mbuf_t *n;
+   if (m == 0)
+      return;
+   if (n = sb->sb_mb) {
+      while (n->m_nextpkt)
+         n = n->m_nextpkt;
+         do {
+            if (n->m_flags & M_EOR) {
+               sbappendrecord(sb, m); // XXXXXX!!!!
+               return;
+            }
+        } while (n->m_next && (n = n->m_next));
+   }
+   sbcompress(sb, m, n);
+*/
+}
+
+

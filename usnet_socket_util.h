@@ -241,11 +241,17 @@ int32
 sbappendaddr( struct sockbuf *sb, struct usn_sockaddr *asa, 
                     usn_mbuf_t *m0, usn_mbuf_t *control);
 
+void    
+sbappend(struct sockbuf *sb, usn_mbuf_t *m);
+
 int
 soreserve(struct usn_socket *so, u_long sndcc, u_long rcvcc);
 
 int
 sbreserve(struct sockbuf *sb, u_long cc);
+
+void
+soisdisconnected(struct usn_socket *so);
 
 
 #endif /* USNET_SOCKET_UTIL_H_ */

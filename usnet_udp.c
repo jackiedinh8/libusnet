@@ -59,6 +59,35 @@ usnet_udp_init()
    DEBUG("udp_init: done");
 }
 
+
+void
+udp_notify(struct inpcb *inp, int error)
+{
+   inp->inp_socket->so_error = errno; 
+   // FIXME: callbacks
+   //sorwakeup(inp->inp_socket);
+   //sowwakeup(inp->inp_socket);
+   return;
+}
+void                
+udp_ctlinput(int cmd, struct usn_sockaddr *sa, usn_ip_t *ip)
+{
+   usn_udphdr_t *uh;
+   //extern struct in_addr zeroin_addr;
+   //extern u_char inetctlerrmap[];
+
+   (void)uh;
+
+   if (!PRC_IS_REDIRECT(cmd) &&
+       ((unsigned)cmd >= PRC_NCMDS || g_inetctlerrmap[cmd] == 0))
+           return;
+   if (ip) {
+      uh = (usn_udphdr_t *)((caddr_t)ip + (ip->ip_hl << 2));
+      in_pcbnotify(&g_udb, sa, uh->uh_dport, ip->ip_src, uh->uh_sport, cmd, udp_notify);
+   } else
+      in_pcbnotify(&g_udb, sa, 0, g_zeroin_addr, 0, cmd, udp_notify);
+}
+ 
 int
 udp_output(struct inpcb *inp, usn_mbuf_t *m, usn_mbuf_t *addr, usn_mbuf_t  *control)
 {

@@ -32,6 +32,8 @@
  *
  *	@(#)tcp_debug.h	8.1 (Berkeley) 6/10/93
  */
+#ifndef _USNET_TCP_DEBUG_H_
+#define _USNET_TCP_DEBUG_H_
 
 #include "usnet_types.h"
 
@@ -57,5 +59,9 @@ char	*tanames[] =
 #endif
 
 #define	TCP_NDEBUG 100
-struct	tcp_debug tcp_debug[TCP_NDEBUG];
-int	tcp_debx;
+struct tcp_debug g_tcp_debug[TCP_NDEBUG];
+int	g_tcp_debx;
+
+
+#endif //_USNET_TCP_DEBUG_H_
+

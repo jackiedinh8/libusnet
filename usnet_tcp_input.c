@@ -39,6 +39,8 @@
 #include "usnet_tcpip.h"
 #include "usnet_tcp_var.h"
 #include "usnet_tcp_subr.h"
+#include "usnet_tcp_seq.h"
+#include "usnet_tcp_fsm.h"
 #include "usnet_route.h"
 
 //int g_tcprexmtthresh = 3;
@@ -70,8 +72,8 @@
 		tp->t_flags |= TF_DELACK; \
 		(tp)->rcv_nxt += (ti)->ti_len; \
 		flags = (ti)->ti_flags & TH_FIN; \
-		tcpstat.tcps_rcvpack++;\
-		tcpstat.tcps_rcvbyte += (ti)->ti_len;\
+		g_tcpstat.tcps_rcvpack++;\
+		g_tcpstat.tcps_rcvbyte += (ti)->ti_len;\
 		sbappend(&(so)->so_rcv, (m)); \
 		sorwakeup(so); \
 	} else { \
@@ -83,42 +85,37 @@
 int
 tcp_reass(struct tcpcb *tp,struct tcpiphdr *ti, usn_mbuf_t *m)
 {
-   return 0;
-/*
 	struct tcpiphdr *q;
-	struct socket *so = tp->t_inpcb->inp_socket;
+	struct usn_socket *so = tp->t_inpcb->inp_socket;
 	int flags;
 
 
-	 * Call with ti==0 after become established to
-	 * force pre-ESTABLISHED data up to user socket.
-
+	// Call with ti==0 after become established to
+	// force pre-ESTABLISHED data up to user socket.
 	if (ti == 0)
 		goto present;
 
 
-	 * Find a segment which begins after this one does.
-
+	// Find a segment which begins after this one does.
 	for (q = tp->seg_next; q != (struct tcpiphdr *)tp;
 	    q = (struct tcpiphdr *)q->ti_next)
 		if (SEQ_GT(q->ti_seq, ti->ti_seq))
 			break;
 
 
-	 * If there is a preceding segment, it may provide some of
-	 * our data already.  If so, drop the data from the incoming
-	 * segment.  If it provides all of our data, drop us.
-
+	// If there is a preceding segment, it may provide some of
+	// our data already.  If so, drop the data from the incoming
+	// segment.  If it provides all of our data, drop us.
 	if ((struct tcpiphdr *)q->ti_prev != (struct tcpiphdr *)tp) {
-		register int i;
+		int i;
 		q = (struct tcpiphdr *)q->ti_prev;
 		// conversion to int (in i) handles seq wraparound
 		i = q->ti_seq + q->ti_len - ti->ti_seq;
 		if (i > 0) {
 			if (i >= ti->ti_len) {
-				tcpstat.tcps_rcvduppack++;
-				tcpstat.tcps_rcvdupbyte += ti->ti_len;
-				m_freem(m);
+				g_tcpstat.tcps_rcvduppack++;
+				g_tcpstat.tcps_rcvdupbyte += ti->ti_len;
+				usn_free_mbuf(m);
 				return (0);
 			}
 			m_adj(m, i);
@@ -127,13 +124,13 @@ tcp_reass(struct tcpcb *tp,struct tcpiphdr *ti, usn_mbuf_t *m)
 		}
 		q = (struct tcpiphdr *)(q->ti_next);
 	}
-	tcpstat.tcps_rcvoopack++;
-	tcpstat.tcps_rcvoobyte += ti->ti_len;
+	g_tcpstat.tcps_rcvoopack++;
+	g_tcpstat.tcps_rcvoobyte += ti->ti_len;
 	REASS_MBUF(ti) = m;		// XXX
 
 
-	 * While we overlap succeeding segments trim them or,
-	 * if they are completely covered, dequeue them.
+	// While we overlap succeeding segments trim them or,
+	// if they are completely covered, dequeue them.
 
 	while (q != (struct tcpiphdr *)tp) {
 		register int i = (ti->ti_seq + ti->ti_len) - q->ti_seq;
@@ -147,20 +144,19 @@ tcp_reass(struct tcpcb *tp,struct tcpiphdr *ti, usn_mbuf_t *m)
 		}
 		q = (struct tcpiphdr *)q->ti_next;
 		m = REASS_MBUF((struct tcpiphdr *)q->ti_prev);
-		remque(q->ti_prev);
-		m_freem(m);
+      // FIXME
+		//remque(q->ti_prev);
+		usn_free_mbuf(m);
 	}
 
 
-	 * Stick new segment in its place.
-
-	insque(ti, q->ti_prev);
+	// Stick new segment in its place.
+   // FIXME
+	//insque(ti, q->ti_prev);
 
 present:
-
-	 * Present data to user, advancing rcv_nxt through
-	 * completed sequence space.
-
+	// Present data to user, advancing rcv_nxt through
+	// completed sequence space.
 	if (TCPS_HAVERCVDSYN(tp->t_state) == 0)
 		return (0);
 	ti = tp->seg_next;
@@ -171,17 +167,19 @@ present:
 	do {
 		tp->rcv_nxt += ti->ti_len;
 		flags = ti->ti_flags & TH_FIN;
-		remque(ti);
+      // FIXME
+		//remque(ti);
 		m = REASS_MBUF(ti);
 		ti = (struct tcpiphdr *)ti->ti_next;
-		if (so->so_state & SS_CANTRCVMORE)
-			m_freem(m);
+		if (so->so_state & USN_CANTRCVMORE)
+			usn_free_mbuf(m);
 		else
 			sbappend(&so->so_rcv, m);
 	} while (ti != (struct tcpiphdr *)tp && ti->ti_seq == tp->rcv_nxt);
-	sorwakeup(so);
+
+   // FIXME: callbacks
+	//sorwakeup(so);
 	return (flags);
-*/
 }
 
 /*
@@ -1568,27 +1566,25 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 		if (mss > MCLBYTES)
 			mss = mss / MCLBYTES * MCLBYTES;
 #endif
+      // FIXME: default is 512, is that good for performance?
 		if (!in_localaddr(inp->inp_faddr))
 			mss = min(mss, g_tcp_mssdflt);
 	}
 
-	 // The current mss, t_maxseg, is initialized to the default value.
-	 // If we compute a smaller value, reduce the current mss.
-	 // If we compute a larger value, return it for use in sending
-	 // a max seg size option, but don't store it for use
-	 // unless we received an offer at least that large from peer.
-	 // However, do not accept offers under 32 bytes.
-
+	// The current mss, t_maxseg, is initialized to the default value.
+	// If we compute a smaller value, reduce the current mss.
+	// If we compute a larger value, return it for use in sending
+	// a max seg size option, but don't store it for use
+	// unless we received an offer at least that large from peer.
+	// However, do not accept offers under 32 bytes.
 	if (offer)
 		mss = min(mss, offer);
 	mss = max(mss, 32);		// sanity
 	if (mss < tp->t_maxseg || offer != 0) {
-
-		 // If there's a pipesize, change the socket buffer
-		 // to that size.  Make the socket buffers an integral
-		 // number of mss units; if the mss is larger than
-		 // the socket buffer, decrease the mss.
-
+		// If there's a pipesize, change the socket buffer
+		// to that size.  Make the socket buffers an integral
+		// number of mss units; if the mss is larger than
+		// the socket buffer, decrease the mss.
 #ifdef RTV_SPIPE
 		if ((bufsize = rt->rt_rmx.rmx_sendpipe) == 0)
 #endif

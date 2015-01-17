@@ -42,7 +42,7 @@
 #include "usnet_route.h"
 #include "usnet_socket.h"
 
-struct usn_in_addr zeroin_addr;
+struct usn_in_addr g_zeroin_addr;
 
 int 
 in_losing (struct inpcb *inp)
@@ -170,7 +170,7 @@ in_pcbbind (struct inpcb *inp, usn_mbuf_t *nam)
             // check admin privileges here, usually with ports < 1024.
             return (EACCES);
          }
-         t = in_pcblookup(head, zeroin_addr, 0,
+         t = in_pcblookup(head, g_zeroin_addr, 0,
                           sin->sin_addr, lport, wild);
          if (t && (reuseport & t->inp_socket->so_options) == 0)
             return (EADDRINUSE);
@@ -184,7 +184,7 @@ in_pcbbind (struct inpcb *inp, usn_mbuf_t *nam)
             head->inp_lport = IPPORT_RESERVED;
          lport = htons(head->inp_lport);
       } while (in_pcblookup(head,
-             zeroin_addr, 0, inp->inp_laddr, lport, wild));
+             g_zeroin_addr, 0, inp->inp_laddr, lport, wild));
    inp->inp_lport = lport;
 
    return 0;
@@ -414,8 +414,8 @@ in_pcbnotify (
    struct inpcb *head, 
    struct usn_sockaddr *dst,
 	u_int fport_arg, 
-	u_int lport_arg, 
    struct usn_in_addr laddr, 
+	u_int lport_arg, 
    int cmd, 
    //void (*notify)(struct inpcb *, int))
    notify_func_t notify)

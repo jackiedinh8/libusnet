@@ -993,6 +993,21 @@ ip_slowtimo()
 }
 
 /*
+ * Drain off all datagram fragments.
+ */
+void
+ip_drain()
+{
+   // FIXME: remove all ip frags.
+/*
+   while (ipq.next != &g_ipq) {
+      //ipstat.ips_fragdropped++;
+      ip_freef(ipq.next);
+   }    
+*/
+}
+
+/*
  * Strip out IP options, at higher
  * level protocol in the kernel.
  * Second argument is buffer to which options

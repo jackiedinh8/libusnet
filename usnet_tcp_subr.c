@@ -33,14 +33,20 @@
  *	@(#)tcp_subr.c	8.2 (Berkeley) 5/24/95
  */
 
+#include <arpa/inet.h>
+
 #include "usnet_tcp_subr.h"
 #include "usnet_tcp.h"
 #include "usnet_tcpip.h"
 #include "usnet_tcp_seq.h"
 #include "usnet_tcp_var.h"
 #include "usnet_tcp_timer.h"
+#include "usnet_tcp_fsm.h"
 #include "usnet_protosw.h"
+#include "usnet_socket_util.h"
 #include "usnet_in_pcb.h"
+#include "usnet_common.h"
+#include "usnet_ip_out.h"
 
 
 
@@ -95,23 +101,22 @@ tcp_init()
 struct tcpiphdr *
 tcp_template(struct tcpcb *tp)
 {
-   return NULL;
-   /*
 	struct inpcb *inp = tp->t_inpcb;
-	struct mbuf *m;
+	usn_mbuf_t *m;
 	struct tcpiphdr *n;
 
 	if ((n = tp->t_template) == 0) {
-		m = m_get(M_DONTWAIT, MT_HEADER);
+      // TODO: alloc exact size!
+		m = usn_get_mbuf(0, BUF_MSIZE, 0);
 		if (m == NULL)
 			return (0);
-		m->m_len = sizeof (struct tcpiphdr);
+		m->mlen = sizeof (struct tcpiphdr);
 		n = mtod(m, struct tcpiphdr *);
 	}
 	n->ti_next = n->ti_prev = 0;
 	n->ti_x1 = 0;
 	n->ti_pr = IPPROTO_TCP;
-	n->ti_len = htons(sizeof (struct tcpiphdr) - sizeof (struct ip));
+	n->ti_len = htons(sizeof (struct tcpiphdr) - sizeof (usn_ip_t));
 	n->ti_src = inp->inp_laddr;
 	n->ti_dst = inp->inp_faddr;
 	n->ti_sport = inp->inp_lport;
@@ -125,7 +130,6 @@ tcp_template(struct tcpcb *tp)
 	n->ti_sum = 0;
 	n->ti_urp = 0;
 	return (n);
-   */
 }
 
 /*
@@ -145,8 +149,6 @@ void
 tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
 	         usn_mbuf_t *m, tcp_seq ack, tcp_seq seq, int flags)
 {
-   return;
-   /*
 	int tlen;
 	int win = 0;
 	struct route *ro = 0;
@@ -156,34 +158,31 @@ tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
 		ro = &tp->t_inpcb->inp_route;
 	}
 	if (m == 0) {
-		m = m_gethdr(M_DONTWAIT, MT_HEADER);
+		//m = m_gethdr(M_DONTWAIT, MT_HEADER);
+      m = (usn_mbuf_t*)usn_get_mbuf(0, BUF_MSIZE, 0);
 		if (m == NULL)
 			return;
-#ifdef TCP_COMPAT_42
-		tlen = 1;
-#else
 		tlen = 0;
-#endif
-		m->m_data += max_linkhdr;
+		m->head += g_max_linkhdr;
+		m->mlen = sizeof (struct tcpiphdr);
 		*mtod(m, struct tcpiphdr *) = *ti;
 		ti = mtod(m, struct tcpiphdr *);
 		flags = TH_ACK;
 	} else {
-		m_freem(m->m_next);
-		m->m_next = 0;
-		m->m_data = (caddr_t)ti;
-		m->m_len = sizeof (struct tcpiphdr);
+      // FIXME: reuse the fisrt mbuf, i.e. packet header.
+		usn_free_mbuf(m->next);
+		m->next = 0;
+		bcopy((caddr_t)ti, m->head, sizeof (struct tcpiphdr));
+		m->mlen = sizeof (struct tcpiphdr);
 		tlen = 0;
 #define xchg(a,b,type) { type t; t=a; a=b; b=t; }
-		xchg(ti->ti_dst.s_addr, ti->ti_src.s_addr, u_long);
+		xchg(ti->ti_dst.s_addr, ti->ti_src.s_addr, u_int32);
 		xchg(ti->ti_dport, ti->ti_sport, u_short);
 #undef xchg
 	}
 	ti->ti_len = htons((u_short)(sizeof (struct tcphdr) + tlen));
 	tlen += sizeof (struct tcpiphdr);
-	m->m_len = tlen;
-	m->m_pkthdr.len = tlen;
-	m->m_pkthdr.rcvif = (struct ifnet *) 0;
+	m->mlen = tlen;
 	ti->ti_next = ti->ti_prev = 0;
 	ti->ti_x1 = 0;
 	ti->ti_seq = htonl(seq);
@@ -198,10 +197,10 @@ tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
 	ti->ti_urp = 0;
 	ti->ti_sum = 0;
 	ti->ti_sum = in_cksum(m, tlen);
-	((struct ip *)ti)->ip_len = tlen;
-	((struct ip *)ti)->ip_ttl = ip_defttl;
-	(void) ip_output(m, NULL, ro, 0, NULL);
-   */
+	((usn_ip_t *)ti)->ip_len = tlen;
+	((usn_ip_t *)ti)->ip_ttl = g_ip_defttl;
+	(void) ipv4_output(m, NULL, ro, 0);
+   return;
 }
 
 /*
@@ -253,21 +252,18 @@ tcp_newtcpcb( struct inpcb *inp)
 struct tcpcb* 
 tcp_drop(struct tcpcb* tp, int error)
 {
-   return NULL;
-   /*
-	struct socket *so = tp->t_inpcb->inp_socket;
+	struct usn_socket *so = tp->t_inpcb->inp_socket;
 
 	if (TCPS_HAVERCVDSYN(tp->t_state)) {
 		tp->t_state = TCPS_CLOSED;
 		(void) tcp_output(tp);
-		tcpstat.tcps_drops++;
+		g_tcpstat.tcps_drops++;
 	} else
-		tcpstat.tcps_conndrops++;
+		g_tcpstat.tcps_conndrops++;
 	if (errno == ETIMEDOUT && tp->t_softerror)
 		errno = tp->t_softerror;
 	so->so_error = errno;
 	return (tcp_close(tp));
-   */
 }
 
 /*
@@ -279,42 +275,37 @@ tcp_drop(struct tcpcb* tp, int error)
 struct tcpcb *
 tcp_close(struct tcpcb *tp)
 {
-   return NULL;
-   /*
-	register struct tcpiphdr *t;
+	struct tcpiphdr *t;
 	struct inpcb *inp = tp->t_inpcb;
-	struct socket *so = inp->inp_socket;
-	register struct mbuf *m;
+	struct usn_socket *so = inp->inp_socket;
+	usn_mbuf_t *m;
 #ifdef RTV_RTT
-	register struct rtentry *rt;
+	struct rtentry *rt;
 
-	
-	 // If we sent enough data to get some meaningful characteristics,
-	 // save them in the routing entry.  'Enough' is arbitrarily 
-	 // defined as the sendpipesize (default 4K) * 16.  This would
-	 // give us 16 rtt samples assuming we only get one sample per
-	 // window (the usual case on a long haul net).  16 samples is
-	 // enough for the srtt filter to converge to within 5% of the correct
-	 // value; fewer samples and we could save a very bogus rtt.
-	 //
-	 // Don't update the default route's characteristics and don't
-	 // update anything that the user "locked".
-	 
+	// If we sent enough data to get some meaningful characteristics,
+	// save them in the routing entry.  'Enough' is arbitrarily 
+	// defined as the sendpipesize (default 4K) * 16.  This would
+	// give us 16 rtt samples assuming we only get one sample per
+	// window (the usual case on a long haul net).  16 samples is
+	// enough for the srtt filter to converge to within 5% of the correct
+	// value; fewer samples and we could save a very bogus rtt.
+	//
+	// Don't update the default route's characteristics and don't
+	// update anything that the user "locked".
 	if (SEQ_LT(tp->iss + so->so_snd.sb_hiwat * 16, tp->snd_max) &&
 	    (rt = inp->inp_route.ro_rt) &&
-	    ((struct sockaddr_in *)rt_key(rt))->sin_addr.s_addr != INADDR_ANY) {
-		register u_long i;
+	    ((struct usn_sockaddr_in *)rt_key(rt))->sin_addr.s_addr != USN_INADDR_ANY) {
+		u_long i;
 
 		if ((rt->rt_rmx.rmx_locks & RTV_RTT) == 0) {
 			i = tp->t_srtt *
 			    (RTM_RTTUNIT / (PR_SLOWHZ * TCP_RTT_SCALE));
 			if (rt->rt_rmx.rmx_rtt && i)
 		
-				 * filter this update to half the old & half
-				 * the new values, converting scale.
-				 * See route.h and tcp_var.h for a
-				 * description of the scaling constants.
-	
+				// filter this update to half the old & half
+				// the new values, converting scale.
+				// See route.h and tcp_var.h for a
+				// description of the scaling constants.
 				rt->rt_rmx.rmx_rtt =
 				    (rt->rt_rmx.rmx_rtt + i) / 2;
 			else
@@ -330,18 +321,17 @@ tcp_close(struct tcpcb *tp)
 				rt->rt_rmx.rmx_rttvar = i;
 		}
 
-		 * update the pipelimit (ssthresh) if it has been updated
-		 * already or if a pipesize was specified & the threshhold
-		 * got below half the pipesize.  I.e., wait for bad news
-		 * before we start updating, then update on both good
-		 * and bad news.
-
-		if ((rt->rt_rmx.rmx_locks & RTV_SSTHRESH) == 0 &&
-		    (i = tp->snd_ssthresh) && rt->rt_rmx.rmx_ssthresh ||
+		// update the pipelimit (ssthresh) if it has been updated
+		// already or if a pipesize was specified & the threshhold
+		// got below half the pipesize.  I.e., wait for bad news
+		// before we start updating, then update on both good
+		// and bad news.
+		if (((rt->rt_rmx.rmx_locks & RTV_SSTHRESH) == 0 &&
+		    (i = tp->snd_ssthresh) && rt->rt_rmx.rmx_ssthresh) ||
 		    i < (rt->rt_rmx.rmx_sendpipe / 2)) {
 
-			 * convert the limit from user data bytes to
-			 * packets then to packet data bytes.
+			// convert the limit from user data bytes to
+			// packets then to packet data bytes.
 
 			i = (i + tp->t_maxseg / 2) / tp->t_maxseg;
 			if (i < 2)
@@ -360,21 +350,27 @@ tcp_close(struct tcpcb *tp)
 	while (t != (struct tcpiphdr *)tp) {
 		t = (struct tcpiphdr *)t->ti_next;
 		m = REASS_MBUF((struct tcpiphdr *)t->ti_prev);
-		remque(t->ti_prev);
-		m_freem(m);
+      // FIXME: define it
+		//remque(t->ti_prev);
+		usn_free_mbuf(m);
 	}
+
 	if (tp->t_template)
-		(void) m_free(dtom(tp->t_template));
-	free(tp, M_PCB);
+		usn_free_buf((u_char*)tp->t_template);
+
+	usn_free_buf((u_char*)tp);
+
 	inp->inp_ppcb = 0;
 	soisdisconnected(so);
+
 	// clobber input pcb cache if we're closing the cached connection
-	if (inp == tcp_last_inpcb)
-		tcp_last_inpcb = &tcb;
+	if (inp == g_tcp_last_inpcb)
+		g_tcp_last_inpcb = &g_tcb;
+
 	in_pcbdetach(inp);
-	tcpstat.tcps_closed++;
+
+	g_tcpstat.tcps_closed++;
 	return ((struct tcpcb *)0);
-   */
 }
 
 void
@@ -391,18 +387,14 @@ tcp_drain()
 void
 tcp_notify(struct inpcb *inp, int error)
 {
-   return;
-   /*
-	register struct tcpcb *tp = (struct tcpcb *)inp->inp_ppcb;
-	register struct socket *so = inp->inp_socket;
+   struct tcpcb *tp = (struct tcpcb *)inp->inp_ppcb;
+   struct usn_socket *so = inp->inp_socket;
 
-	
-	 * Ignore some errors if we are hooked up.
-	 * If connection hasn't completed, has retransmitted several times,
-	 * and receives a second error, give up now.  This is better
-	 * than waiting a long time to establish a connection that
-	 * can never complete.
-
+	// Ignore some errors if we are hooked up.
+	// If connection hasn't completed, has retransmitted several times,
+	// and receives a second error, give up now.  This is better
+	// than waiting a long time to establish a connection that
+	// can never complete.
 	if (tp->t_state == TCPS_ESTABLISHED &&
 	     (error == EHOSTUNREACH || error == ENETUNREACH ||
 	      error == EHOSTDOWN)) {
@@ -412,34 +404,33 @@ tcp_notify(struct inpcb *inp, int error)
 		so->so_error = error;
 	else 
 		tp->t_softerror = error;
-	wakeup((caddr_t) &so->so_timeo);
-	sorwakeup(so);
-	sowwakeup(so);
-   */
+
+   // FIXME: callbacks
+	//wakeup((caddr_t) &so->so_timeo);
+	//sorwakeup(so);
+	//sowwakeup(so);
+   return; 
 }
 
 void
 tcp_ctlinput( int cmd, struct usn_sockaddr *sa,usn_ip_t *ip)
 {
-   return;
-   /*
-	register struct tcphdr *th;
-	extern struct in_addr zeroin_addr;
-	extern u_char inetctlerrmap[];
+	struct tcphdr *th;
+	//extern struct in_addr g_zeroin_addr;
+	//extern u_char inetctlerrmap[];
 	void (*notify) __P((struct inpcb *, int)) = tcp_notify;
 
 	if (cmd == PRC_QUENCH)
 		notify = tcp_quench;
 	else if (!PRC_IS_REDIRECT(cmd) &&
-		 ((unsigned)cmd > PRC_NCMDS || inetctlerrmap[cmd] == 0))
+		 ((unsigned)cmd > PRC_NCMDS || g_inetctlerrmap[cmd] == 0))
 		return;
 	if (ip) {
 		th = (struct tcphdr *)((caddr_t)ip + (ip->ip_hl << 2));
-		in_pcbnotify(&tcb, sa, th->th_dport, ip->ip_src, th->th_sport,
+		in_pcbnotify(&g_tcb, sa, th->th_dport, ip->ip_src, th->th_sport,
 			cmd, notify);
 	} else
-		in_pcbnotify(&tcb, sa, 0, zeroin_addr, 0, cmd, notify);
-   */
+		in_pcbnotify(&g_tcb, sa, 0, g_zeroin_addr, 0, cmd, notify);
 }
 
 /*
@@ -449,11 +440,8 @@ tcp_ctlinput( int cmd, struct usn_sockaddr *sa,usn_ip_t *ip)
 void   
 tcp_quench(struct inpcb* inp, int error)
 {
-   return;
-   /*
 	struct tcpcb *tp = intotcpcb(inp);
-
 	if (tp)
 		tp->snd_cwnd = tp->t_maxseg;
-   */
+   return;
 }

@@ -33,6 +33,7 @@ void insque(struct llinfo_arp *la, struct llinfo_arp *head)
 
 void remque() 
 {
+   //FIXME:
 }
 
 void arpinit()

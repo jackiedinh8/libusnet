@@ -36,9 +36,9 @@
 #define  BUF_MSIZE    128 
 
 typedef struct usn_mbuf usn_mbuf_t;
-struct usn_mbuf {
-   u_char          *head;  // point to the first byte of unprocessed portion.
-   u_int32          mlen;
+struct usn_mbuf {          // The first two fields are overlaid by usn_buf_t.
+   u_char          *head;  // Point to the first byte of processed portion.
+   u_int32          mlen;  // length of processed data.
    usn_mbuf_t      *next;
    usn_mbuf_t      *prev;
    usn_mbuf_t      *queue; // to magage a queue of mbufs.

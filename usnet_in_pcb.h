@@ -87,6 +87,9 @@ struct inpcb {
 
 #define	sotoinpcb(so)	((struct inpcb *)(so)->so_pcb)
 
+extern struct usn_in_addr g_zeroin_addr;
+extern u_char g_inetctlerrmap[PRC_NCMDS];
+
 typedef void (*notify_func_t)(struct inpcb *, int); 
 
 int	 in_losing (struct inpcb *);
@@ -98,9 +101,8 @@ int	 in_pcbdisconnect (struct inpcb *);
 struct inpcb * in_pcblookup (struct inpcb *,
 	    struct usn_in_addr, u_int, struct usn_in_addr, u_int, int);
 int    in_pcbnotify ( struct inpcb *head, struct usn_sockaddr *dst,
-	            u_int fport_arg, u_int lport_arg, struct usn_in_addr laddr, 
-               int cmd, //void (*notify)(struct inpcb *, int));
-               notify_func_t notify);
+	            u_int fport_arg, struct usn_in_addr laddr, u_int lport_arg, 
+               int cmd, notify_func_t notify);
 void	 in_rtchange (struct inpcb *inp, int errno);
 int	 in_setpeeraddr (struct inpcb *, usn_mbuf_t *);
 int	 in_setsockaddr (struct inpcb *, usn_mbuf_t *);
