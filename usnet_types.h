@@ -57,4 +57,10 @@ typedef struct {
     u_char     *data;
 } usn_str_t;
 
+#include <arpa/inet.h>
+#define NTOHL(x) (x)=ntohl(x)
+#define NTOHS(x) (x)=ntohs(x)
+#define HTONS(x) (x)=ntohs(x)
+#define HTONL(x) (x)=ntohs(x)
+
 #endif /* !_USNET_TYPES_H_ */

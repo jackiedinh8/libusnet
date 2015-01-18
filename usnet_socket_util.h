@@ -253,5 +253,34 @@ sbreserve(struct sockbuf *sb, u_long cc);
 void
 soisdisconnected(struct usn_socket *so);
 
+extern u_long   g_sb_max;
+/* to catch callers missing new second argument to sonewconn: */
+#define sonewconn(head, connstatus)   sonewconn1((head), (connstatus))
+struct usn_socket *
+sonewconn1 (struct usn_socket *head, int connstatus);
+
+void
+sbdrop(struct sockbuf *sb, int len);
+
+#define  sorwakeup(so)  { sowakeup((so), &(so)->so_rcv); \
+           if ((so)->so_upcall) \
+             (*((so)->so_upcall))((so), (so)->so_upcallarg, 0 /*M_DONTWAIT*/); \
+         }
+
+#define  sowwakeup(so)  sowakeup((so), &(so)->so_snd)
+void
+sowakeup(struct usn_socket *so, struct sockbuf *sb);
+
+void
+soisconnected(struct usn_socket *so);
+
+void  
+sohasoutofband(struct usn_socket *so);
+
+void
+socantrcvmore( struct usn_socket *so);
+
+int
+soabort( struct usn_socket *so);
 
 #endif /* USNET_SOCKET_UTIL_H_ */

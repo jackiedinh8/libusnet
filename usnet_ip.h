@@ -224,14 +224,17 @@ struct ipoption {
 extern u_short  g_ip_id;            /* ip packet ctr, for ids */
 extern int g_ip_defttl;
 
-void 
-usnet_ipv4_init();
-
 unsigned short 
 in_cksum(usn_mbuf_t *m, int len);
 
 void 
 ipv4_input(usn_mbuf_t* m);
+
+usn_mbuf_t *
+ip_srcroute();
+
+void 
+usnet_ipv4_init();
 
 void 
 handle_ipv4_old(u_char *m, int len, struct netmap_ring *ring, int cur);

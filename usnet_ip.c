@@ -1006,6 +1006,66 @@ ip_drain()
    }    
 */
 }
+/*
+ * Retrieve incoming source route for use in replies,
+ * in the same form used by setsockopt.
+ * The first hop is placed before the options, will be removed later.
+ */
+usn_mbuf_t *
+ip_srcroute()
+{
+   return 0;
+/*
+   struct in_addr *p, *q;
+   struct mbuf *m;
+
+   if (ip_nhops == 0)
+      return ((struct mbuf *)0);
+   m = m_get(M_DONTWAIT, MT_SOOPTS);
+   if (m == 0)
+      return ((struct mbuf *)0);
+
+#define OPTSIZ (sizeof(ip_srcrt.nop) + sizeof(ip_srcrt.srcopt))
+   // length is (nhops+1)*sizeof(addr) + sizeof(nop + srcrt header)
+   m->m_len = ip_nhops * sizeof(struct in_addr) + sizeof(struct in_addr) +
+       OPTSIZ;
+#ifdef DIAGNOSTIC
+   if (ipprintfs)
+      printf("ip_srcroute: nhops %d mlen %d", ip_nhops, m->m_len);
+#endif
+   // First save first hop for return route
+   p = &ip_srcrt.route[ip_nhops - 1];
+   *(mtod(m, struct in_addr *)) = *p--;
+#ifdef DIAGNOSTIC
+   if (ipprintfs)
+      printf(" hops %lx", ntohl(mtod(m, struct in_addr *)->s_addr));
+#endif
+   // Copy option fields and padding (nop) to mbuf.
+   ip_srcrt.nop = IPOPT_NOP;
+   ip_srcrt.srcopt[IPOPT_OFFSET] = IPOPT_MINOFF;
+   bcopy((caddr_t)&ip_srcrt.nop,
+       mtod(m, caddr_t) + sizeof(struct in_addr), OPTSIZ);
+   q = (struct in_addr *)(mtod(m, caddr_t) +
+       sizeof(struct in_addr) + OPTSIZ);
+#undef OPTSIZ
+   // Record return path as an IP source route,
+   // reversing the path (pointers are now aligned).
+   while (p >= ip_srcrt.route) {
+#ifdef DIAGNOSTIC
+      if (ipprintfs)
+         printf(" %lx", ntohl(q->s_addr));
+#endif
+      *q++ = *p--;
+   }
+   // Last hop goes to final destination.
+   *q = ip_srcrt.dst;
+#ifdef DIAGNOSTIC
+   if (ipprintfs)
+      printf(" %lx\n", ntohl(q->s_addr));
+#endif
+   return (m);
+*/
+}
 
 /*
  * Strip out IP options, at higher
