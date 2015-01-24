@@ -117,6 +117,46 @@ bad2:
 bad:
    return -1;// no buffer available: (ENOBUFS);
 }
+ 
+void
+soisdisconnecting(struct usn_socket *so)
+{  
+
+   so->so_state &= ~USN_ISCONNECTING;
+   so->so_state |= (USN_ISDISCONNECTING|USN_CANTRCVMORE|USN_CANTSENDMORE);
+   // FIXME: callbacks
+   //wakeup((caddr_t)&so->so_timeo);
+   //sowwakeup(so);
+   //sorwakeup(so);
+}  
+
+void
+soisconnecting(struct usn_socket *so)
+{
+
+   so->so_state &= ~(USN_ISCONNECTED|USN_ISDISCONNECTING);
+   so->so_state |= USN_ISCONNECTING; 
+}      
+
+/*
+ * Socantsendmore indicates that no more data will be sent on the
+ * socket; it would normally be applied to a socket when the user
+ * informs the system that no more data is to be sent, by the protocol
+ * code (in case PRU_SHUTDOWN).  Socantrcvmore indicates that no more data
+ * will be received, and will normally be applied to the socket by a
+ * protocol when it detects that the peer will send no more data.
+ * Data queued for reading in the socket may yet be read.
+ */
+
+void
+socantsendmore(struct usn_socket *so)
+{
+
+   so->so_state |= USN_CANTSENDMORE;
+   // FIXME: implement it.
+   //sowwakeup(so);
+   return;
+}
 
 void
 soisdisconnected(struct usn_socket *so)
@@ -393,4 +433,18 @@ sbappend(struct sockbuf *sb, usn_mbuf_t *m)
 */
 }
 
+/*
+ * Free all mbufs in a sockbuf.
+ * Check that all resources are reclaimed.
+ */
+void
+sbflush(struct sockbuf *sb)
+{
 
+   if (sb->sb_flags & SB_LOCK)
+      DEBUG("panic: sbflush");
+   while (sb->sb_mbcnt)
+      sbdrop(sb, (int)sb->sb_cc);
+   if (sb->sb_cc || sb->sb_mb)
+      DEBUG("panic: sbflush 2");
+}

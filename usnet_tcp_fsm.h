@@ -64,11 +64,7 @@
  * determined by state, with the proviso that TH_FIN is sent only
  * if all data queued for output is included in the segment.
  */
-u_char	g_tcp_outflags[TCP_NSTATES] = {
-    TH_RST|TH_ACK, 0, TH_SYN, TH_SYN|TH_ACK,
-    TH_ACK, TH_ACK,
-    TH_FIN|TH_ACK, TH_FIN|TH_ACK, TH_FIN|TH_ACK, TH_ACK, TH_ACK,
-};
+extern u_char	g_tcp_outflags[TCP_NSTATES];
 
 #ifdef KPROF
 int	tcp_acounts[TCP_NSTATES][PRU_NREQ];

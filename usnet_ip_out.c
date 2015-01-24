@@ -41,6 +41,7 @@
 #include "usnet_route.h"
 #include "usnet_if.h"
 #include "usnet_eth.h"
+#include "usnet_in_pcb.h"
 
 
 /*
@@ -62,6 +63,8 @@ ip_insertoptions( usn_mbuf_t *m, usn_mbuf_t *opt, int *phlen)
 
    if (p->ipopt_dst.s_addr)
       ip->ip_dst = p->ipopt_dst;
+
+   // FIXME: review it.
 /*
    if (m->flags & M_EXT || m->m_data - optlen < m->m_pktdat) {
       MGETHDR(n, M_DONTWAIT, MT_HEADER);
@@ -381,5 +384,509 @@ bad:
 
    return 0;
 }
+/*
+ * Return the IP multicast options in response to user getsockopt().
+ */
+int
+//ip_getmoptions( int optname, struct ip_moptions *imo, usn_mbuf_t **mp)
+ip_getmoptions( int optname, void *imo, usn_mbuf_t **mp)
+{
+   return 0;
+/*
+   u_char *ttl;
+   u_char *loop;
+   struct in_addr *addr;
+   struct in_ifaddr *ia;
+
+   *mp = m_get(M_WAIT, MT_SOOPTS);
+
+   switch (optname) {
+
+   case IP_MULTICAST_IF:
+      addr = mtod(*mp, struct in_addr *);
+      (*mp)->m_len = sizeof(struct in_addr);
+      if (imo == NULL || imo->imo_multicast_ifp == NULL)
+         addr->s_addr = INADDR_ANY;
+      else {
+         IFP_TO_IA(imo->imo_multicast_ifp, ia);
+         addr->s_addr = (ia == NULL) ? INADDR_ANY
+               : IA_SIN(ia)->sin_addr.s_addr;
+      }
+      return (0);
+
+   case IP_MULTICAST_TTL:
+      ttl = mtod(*mp, u_char *);
+      (*mp)->m_len = 1;
+      *ttl = (imo == NULL) ? IP_DEFAULT_MULTICAST_TTL
+                 : imo->imo_multicast_ttl;
+      return (0);
+   case IP_MULTICAST_LOOP:
+      loop = mtod(*mp, u_char *);
+      (*mp)->m_len = 1;
+      *loop = (imo == NULL) ? IP_DEFAULT_MULTICAST_LOOP
+                  : imo->imo_multicast_loop;
+      return (0); 
+      
+   default:
+      return (EOPNOTSUPP);
+   }  
+*/
+}  
+/*
+ * Set the IP multicast options in response to user setsockopt().
+ */
+int
+//ip_setmoptions( int optname, struct ip_moptions **imop, usn_mbuf_t *m)
+ip_setmoptions( int optname, void **imop, usn_mbuf_t *m)
+{
+   return 0;
+/*
+   register int error = 0;
+   u_char loop;
+   register int i;
+   struct in_addr addr;
+   register struct ip_mreq *mreq;
+   register struct ifnet *ifp;
+   register struct ip_moptions *imo = *imop;
+   struct route ro;
+   register struct sockaddr_in *dst;
+         
+   if (imo == NULL) {
+      // No multicast option buffer attached to the pcb;
+      // allocate one and initialize to default values.
+      imo = (struct ip_moptions*)malloc(sizeof(*imo), M_IPMOPTS,
+          M_WAITOK);
+
+      if (imo == NULL)
+         return (ENOBUFS);
+      *imop = imo;
+      imo->imo_multicast_ifp = NULL;
+      imo->imo_multicast_ttl = IP_DEFAULT_MULTICAST_TTL;
+      imo->imo_multicast_loop = IP_DEFAULT_MULTICAST_LOOP;
+      imo->imo_num_memberships = 0;
+   }
+   switch (optname) {
+
+   case IP_MULTICAST_IF:
+
+      // Select the interface for outgoing multicast packets.
+      if (m == NULL || m->m_len != sizeof(struct in_addr)) {
+         error = EINVAL;
+         break;
+      }
+      addr = *(mtod(m, struct in_addr *));
+
+      // INADDR_ANY is used to remove a previous selection.
+      // When no interface is selected, a default one is
+      // chosen every time a multicast packet is sent.
+      if (addr.s_addr == INADDR_ANY) {
+         imo->imo_multicast_ifp = NULL;
+         break;
+      }
+
+      // The selected interface is identified by its local
+      // IP address.  Find the interface and confirm that
+      // it supports multicasting.
+      INADDR_TO_IFP(addr, ifp);
+      if (ifp == NULL || (ifp->if_flags & IFF_MULTICAST) == 0) {
+         error = EADDRNOTAVAIL;
+         break;
+      }
+      imo->imo_multicast_ifp = ifp;
+      break;
+
+   case IP_MULTICAST_TTL:
+
+      // Set the IP time-to-live for outgoing multicast packets.
+      if (m == NULL || m->m_len != 1) {
+         error = EINVAL;
+         break;
+      }
+      imo->imo_multicast_ttl = *(mtod(m, u_char *));
+      break;
+
+   case IP_MULTICAST_LOOP:
+
+      // Set the loopback flag for outgoing multicast packets.
+      // Must be zero or one.
+      if (m == NULL || m->m_len != 1 ||
+         (loop = *(mtod(m, u_char *))) > 1) {
+         error = EINVAL;
+         break;
+      }
+      imo->imo_multicast_loop = loop;
+      break;
+
+   case IP_ADD_MEMBERSHIP:
+
+      // Add a multicast group membership.
+      // Group must be a valid IP multicast address.
+      if (m == NULL || m->m_len != sizeof(struct ip_mreq)) {
+         error = EINVAL;
+         break;
+      }
+      mreq = mtod(m, struct ip_mreq *);
+      if (!IN_MULTICAST(ntohl(mreq->imr_multiaddr.s_addr))) {
+         error = EINVAL;
+         break;
+      }
+
+      // If no interface address was provided, use the interface of
+      // the route to the given multicast address.
+      if (mreq->imr_interface.s_addr == INADDR_ANY) {
+         ro.ro_rt = NULL;
+         dst = (struct sockaddr_in *)&ro.ro_dst;
+         dst->sin_len = sizeof(*dst);
+         dst->sin_family = AF_INET;
+         dst->sin_addr = mreq->imr_multiaddr;
+         rtalloc(&ro);
+         if (ro.ro_rt == NULL) {
+            error = EADDRNOTAVAIL;
+            break;
+         }
+         ifp = ro.ro_rt->rt_ifp;
+         rtfree(ro.ro_rt);
+      }
+      else {
+         INADDR_TO_IFP(mreq->imr_interface, ifp);
+      }
+
+      // See if we found an interface, and confirm that it
+      // supports multicast.
+      if (ifp == NULL || (ifp->if_flags & IFF_MULTICAST) == 0) {
+         error = EADDRNOTAVAIL;
+         break;
+      }
+
+      // See if the membership already exists or if all the
+      // membership slots are full.
+      for (i = 0; i < imo->imo_num_memberships; ++i) {
+         if (imo->imo_membership[i]->inm_ifp == ifp &&
+             imo->imo_membership[i]->inm_addr.s_addr
+                  == mreq->imr_multiaddr.s_addr)
+            break;
+      }
+      if (i < imo->imo_num_memberships) {
+         error = EADDRINUSE;
+         break;
+      }
+      if (i == IP_MAX_MEMBERSHIPS) {
+         error = ETOOMANYREFS;
+         break;
+      }
+
+      // Everything looks good; add a new record to the multicast
+      // address list for the given interface.
+      if ((imo->imo_membership[i] =
+          in_addmulti(&mreq->imr_multiaddr, ifp)) == NULL) {
+         error = ENOBUFS;
+         break;
+      }
+      ++imo->imo_num_memberships;
+      break;
+
+   case IP_DROP_MEMBERSHIP:
+
+      // Drop a multicast group membership.
+      // Group must be a valid IP multicast address.
+      if (m == NULL || m->m_len != sizeof(struct ip_mreq)) {
+         error = EINVAL;
+         break;
+      }
+      mreq = mtod(m, struct ip_mreq *);
+      if (!IN_MULTICAST(ntohl(mreq->imr_multiaddr.s_addr))) {
+         error = EINVAL;
+         break;
+      }
+
+      // If an interface address was specified, get a pointer
+      // to its ifnet structure.
+      if (mreq->imr_interface.s_addr == INADDR_ANY)
+         ifp = NULL;
+      else {
+         INADDR_TO_IFP(mreq->imr_interface, ifp);
+         if (ifp == NULL) {
+            error = EADDRNOTAVAIL;
+            break;
+         }
+      }
+
+      // Find the membership in the membership array.
+      for (i = 0; i < imo->imo_num_memberships; ++i) {
+         if ((ifp == NULL ||
+              imo->imo_membership[i]->inm_ifp == ifp) &&
+              imo->imo_membership[i]->inm_addr.s_addr ==
+              mreq->imr_multiaddr.s_addr)
+            break;
+      }
+      if (i == imo->imo_num_memberships) {
+         error = EADDRNOTAVAIL;
+         break;
+      }
+      // Give up the multicast address record to which the
+      // membership points.
+      in_delmulti(imo->imo_membership[i]);
+      // Remove the gap in the membership array.
+      for (++i; i < imo->imo_num_memberships; ++i)
+         imo->imo_membership[i-1] = imo->imo_membership[i];
+      --imo->imo_num_memberships;
+      break;
+
+   default:
+      error = EOPNOTSUPP;
+      break;
+   }
 
 
+   // If all options have default values, no need to keep the mbuf.
+   if (imo->imo_multicast_ifp == NULL &&
+       imo->imo_multicast_ttl == IP_DEFAULT_MULTICAST_TTL &&
+       imo->imo_multicast_loop == IP_DEFAULT_MULTICAST_LOOP &&
+       imo->imo_num_memberships == 0) {
+      free(*imop, M_IPMOPTS);
+      *imop = NULL;
+   }
+
+   return (error);
+*/
+}
+
+/*
+ * Set up IP options in pcb for insertion in output packets.
+ * Store in mbuf with pointer in pcbopt, adding pseudo-option
+ * with destination address if source routed.
+ */
+int
+ip_pcbopts(int optname, usn_mbuf_t **pcbopt, usn_mbuf_t *m)
+{
+   return 0;
+/*
+   u_int cnt, optlen;
+   u_char *cp;
+   u_char opt;
+
+   // turn off any old options
+   if (*pcbopt)
+      usn_free_mbuf(*pcbopt);
+   *pcbopt = 0;
+   if (m == (usn_mbuf_t *)0 || m->mlen == 0) {
+      
+      // Only turning off any previous options.
+      if (m)
+         usn_free_mbuf(m);
+      return (0);
+   }
+
+   if (m->mlen % sizeof(u_long))
+      goto bad;
+
+   // IP first-hop destination address will be stored before
+   // actual options; move other options back
+   // and clear it when none present.
+   // FIXME: no field: m_dat 
+   //if (m->head + m->mlen + sizeof(struct in_addr) >= &m->m_dat[MLEN])
+   //   goto bad;
+   cnt = m->mlen;
+   m->mlen += sizeof(struct in_addr);
+   cp = mtod(m, u_char *) + sizeof(struct in_addr);
+   // FIXME: implement it.
+   //ovbcopy(mtod(m, caddr_t), (caddr_t)cp, (unsigned)cnt);
+   bzero(mtod(m, caddr_t), sizeof(struct in_addr));
+
+   for (; cnt > 0; cnt -= optlen, cp += optlen) {
+      opt = cp[IPOPT_OPTVAL];
+      if (opt == IPOPT_EOL)
+         break;
+      if (opt == IPOPT_NOP)
+         optlen = 1;
+      else {
+         optlen = cp[IPOPT_OLEN];
+         if (optlen <= IPOPT_OLEN || optlen > cnt)
+            goto bad;
+      }
+      switch (opt) {
+
+      default:
+         break;
+      case IPOPT_LSRR:
+      case IPOPT_SSRR:
+         // user process specifies route as:
+         // ->A->B->C->D
+         // D must be our final destination (but we can't
+         // check that since we may not have connected yet).
+         // A is first hop destination, which doesn't appear in
+         // actual IP option, but is stored before the options.
+         if (optlen < IPOPT_MINOFF - 1 + sizeof(struct in_addr))
+            goto bad;
+         m->m_len -= sizeof(struct in_addr);
+         cnt -= sizeof(struct in_addr);
+         optlen -= sizeof(struct in_addr);
+         cp[IPOPT_OLEN] = optlen;
+
+         // Move first hop before start of options.
+         bcopy((caddr_t)&cp[IPOPT_OFFSET+1], mtod(m, caddr_t),
+             sizeof(struct in_addr));
+
+         // Then copy rest of options back
+         // to close up the deleted entry.
+         ovbcopy((caddr_t)(&cp[IPOPT_OFFSET+1] +
+             sizeof(struct in_addr)),
+             (caddr_t)&cp[IPOPT_OFFSET+1],
+             (unsigned)cnt + sizeof(struct in_addr));
+         break;
+      }
+   }
+   if (m->m_len > MAX_IPOPTLEN + sizeof(struct in_addr))
+      goto bad;
+   *pcbopt = m;
+   return (0);
+
+bad:
+   usn_free_mbuf(m);
+   return (EINVAL);
+*/
+}
+/*
+ * IP socket option processing.
+ */
+int
+ip_ctloutput(int op, struct usn_socket *so, int level, int optname, usn_mbuf_t **mp)
+{
+   struct inpcb *inp = sotoinpcb(so);
+   usn_mbuf_t *m = *mp;
+   int optval;
+   int error = 0;
+
+   if (level != IPPROTO_IP) {
+      error = EINVAL;
+      if (op == PRCO_SETOPT && *mp)
+         usn_free_mbuf(*mp);
+   } else switch (op) {
+
+   case PRCO_SETOPT:
+      switch (optname) {
+      case IP_OPTIONS:
+      case IP_RETOPTS:
+         return (ip_pcbopts(optname, &inp->inp_options, m));
+
+      case IP_TOS:
+      case IP_TTL:
+      case IP_RECVOPTS:
+      case IP_RECVRETOPTS:
+      case IP_RECVDSTADDR:
+         if (m->mlen != sizeof(int))
+            error = EINVAL;
+         else {
+            optval = *mtod(m, int *);
+            switch (optname) {
+
+            case IP_TOS:
+               inp->inp_ip.ip_tos = optval;
+               break;
+
+            case IP_TTL:
+               inp->inp_ip.ip_ttl = optval;
+               break;
+#define  OPTSET(bit) \
+   if (optval) \
+      inp->inp_flags |= bit; \
+   else \
+      inp->inp_flags &= ~bit;
+
+            case IP_RECVOPTS:
+               OPTSET(INP_RECVOPTS);
+               break;
+
+            case IP_RECVRETOPTS:
+               OPTSET(INP_RECVRETOPTS);
+               break;
+
+            case IP_RECVDSTADDR:
+               OPTSET(INP_RECVDSTADDR);
+               break;
+            }
+         }
+         break;
+#undef OPTSET
+      case IP_MULTICAST_IF:
+      case IP_MULTICAST_TTL:
+      case IP_MULTICAST_LOOP:
+      case IP_ADD_MEMBERSHIP:
+      case IP_DROP_MEMBERSHIP:
+         // FIXME: define ip_moptions
+         //error = ip_setmoptions(optname, &inp->inp_moptions, m);
+         error = ip_setmoptions(optname, 0, m);
+         break;
+
+      default:
+         error = ENOPROTOOPT;
+         break;
+      }
+      if (m)
+         usn_free_mbuf(m);
+      break;
+
+   case PRCO_GETOPT:
+      switch (optname) {
+      case IP_OPTIONS:
+      case IP_RETOPTS:
+         *mp = m = usn_get_mbuf(0, BUF_MSIZE, 0);
+         if (inp->inp_options) {
+            m->mlen = inp->inp_options->mlen;
+            bcopy(mtod(inp->inp_options, caddr_t),
+                mtod(m, caddr_t), (unsigned)m->mlen);
+         } else
+            m->mlen = 0;
+         break;
+
+      case IP_TOS:
+      case IP_TTL:
+      case IP_RECVOPTS:
+      case IP_RECVRETOPTS:
+      case IP_RECVDSTADDR:
+         *mp = m = usn_get_mbuf(0, BUF_MSIZE, 0);
+         m->mlen = sizeof(int);
+         switch (optname) {
+         case IP_TOS:
+            optval = inp->inp_ip.ip_tos;
+            break;
+
+         case IP_TTL:
+            optval = inp->inp_ip.ip_ttl;
+            break;
+
+#define  OPTBIT(bit) (inp->inp_flags & bit ? 1 : 0)
+
+         case IP_RECVOPTS:
+            optval = OPTBIT(INP_RECVOPTS);
+            break;
+
+         case IP_RECVRETOPTS:
+            optval = OPTBIT(INP_RECVRETOPTS);
+            break;
+
+         case IP_RECVDSTADDR:
+            optval = OPTBIT(INP_RECVDSTADDR);
+            break;
+         }
+         *mtod(m, int *) = optval;
+         break;
+
+      case IP_MULTICAST_IF:
+      case IP_MULTICAST_TTL:
+      case IP_MULTICAST_LOOP:
+      case IP_ADD_MEMBERSHIP:
+      case IP_DROP_MEMBERSHIP:
+         // FIXME: define ip_moptions
+         //error = ip_getmoptions(optname, inp->inp_moptions, mp);
+         error = ip_getmoptions(optname, 0, mp);
+         break;
+
+      default:
+         error = ENOPROTOOPT;
+         break;
+      }
+      break;
+   }
+   return (error);
+}

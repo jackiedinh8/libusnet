@@ -25,7 +25,8 @@ OBJS    := stack.o usnet_arp.o usnet_eth.o usnet_ip.o usnet_core.o usnet_slab.o 
            usnet_error.o usnet_ip_out.o usnet_in.o usnet_in_pcb.o usnet_udp.o usnet_radix.o\
            usnet_socket.o usnet_socket_util.o usnet_order32.o\
            usnet_tcp_subr.o usnet_tcp_var.o usnet_tcp_timer.o usnet_tcp_seq.o\
-           usnet_tcp_output.o usnet_tcp_input.o
+           usnet_tcp_output.o usnet_tcp_input.o usnet_tcp_fsm.o usnet_tcp_usrreq.o\
+           usnet_tcp_debug.o
 
 BIN     := libusnet.a
 

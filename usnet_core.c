@@ -748,7 +748,7 @@ usnet_socket(u_int32 dom, u_int32 type, u_int32 proto)
    struct usn_socket* so;
    int    fd;
    //fd = usnet_create_socket(dom, &so, type, proto);
-   fd = usnet_create_socket(USN_AF_INET, &so, SOCK_DGRAM, proto);
+   fd = usnet_create_socket(USN_AF_INET, &so, type, proto);
    if ( fd <= 0 ) {
       DEBUG("failed to create socket, fd=%d", fd);
       return -1;

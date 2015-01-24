@@ -3,7 +3,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "usnet_common.h"
 #include "usnet_core.h"
 #include "usnet_log.h"
 #include "usnet_ip.h"
@@ -70,7 +69,7 @@ int main(int argc, char *argv[])
 
    usnet_setup(argc, argv);
 
-   fd = usnet_socket(USN_AF_INET,SOCK_STREAM,0);
+   fd = usnet_socket(0,0,0);
 
    ret = usnet_bind(fd, inet_addr("10.10.10.8"), 35355);
    if ( ret < 0 )

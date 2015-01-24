@@ -286,6 +286,15 @@ int
 soqremque(struct usn_socket *so, int q);
 
 void
+soisdisconnecting(struct usn_socket *so);
+
+void
+soisconnecting(struct usn_socket *so);
+
+void
+socantsendmore(struct usn_socket *so);
+
+void
 soisconnected(struct usn_socket *so);
 
 void  
@@ -296,5 +305,8 @@ socantrcvmore( struct usn_socket *so);
 
 int
 soabort( struct usn_socket *so);
+
+void
+sbflush(struct sockbuf *sb);
 
 #endif /* USNET_SOCKET_UTIL_H_ */

@@ -33,6 +33,10 @@
  *	@(#)tcp_debug.c	8.1 (Berkeley) 6/10/93
  */
 
+#include "usnet_tcp_debug.h"
+#include "usnet_tcpip.h"
+#include "usnet_ip_icmp.h"
+
 #ifdef TCPDEBUG
 /* load symbolic names */
 #define PRUREQUESTS
@@ -40,31 +44,6 @@
 #define	TCPTIMERS
 #define	TANAMES
 #endif
-/*
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/mbuf.h>
-#include <sys/socket.h>
-#include <sys/socketvar.h>
-#include <sys/protosw.h>
-#include <sys/errno.h>
-
-#include <net/route.h>
-#include <net/if.h>
-
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <netinet/in_pcb.h>
-#include <netinet/ip_var.h>
-#include <netinet/tcp.h>
-#include <netinet/tcp_fsm.h>
-#include <netinet/tcp_seq.h>
-#include <netinet/tcp_timer.h>
-#include <netinet/tcp_var.h>
-#include <netinet/tcpip.h>
-#include <netinet/tcp_debug.h>
-*/
 
 #ifdef TCPDEBUG
 int	tcpconsdebug = 0;
@@ -78,10 +57,15 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 {
 	tcp_seq seq, ack;
 	int len, flags;
-	struct tcp_debug *td = &tcp_debug[tcp_debx++];
+	struct tcp_debug *td = &g_tcp_debug[g_tcp_debx++];
 
-	if (tcp_debx == TCP_NDEBUG)
-		tcp_debx = 0;
+   (void) flags;
+   (void) len;
+   (void) ack;
+   (void) seq;
+
+	if (g_tcp_debx == TCP_NDEBUG)
+		g_tcp_debx = 0;
 	td->td_time = iptime();
 	td->td_act = act;
 	td->td_ostate = ostate;
@@ -99,10 +83,10 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 	if (tcpconsdebug == 0)
 		return;
 	if (tp)
-		printf("%x %s:", tp, tcpstates[ostate]);
+		DEBUG("%x %s:", tp, tcpstates[ostate]);
 	else
-		printf("???????? ");
-	printf("%s ", tanames[act]);
+		DEBUG("???????? ");
+	DEBUG("%s ", tanames[act]);
 	switch (act) {
 
 	case TA_INPUT:
@@ -121,10 +105,10 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 		if (act == TA_OUTPUT)
 			len -= sizeof (struct tcphdr);
 		if (len)
-			printf("[%x..%x)", seq, seq+len);
+			DEBUG("[%x..%x)", seq, seq+len);
 		else
-			printf("%x", seq);
-		printf("@%x, urp=%x", ack, ti->ti_urp);
+			DEBUG("%x", seq);
+		DEBUG("@%x, urp=%x", ack, ti->ti_urp);
 		flags = ti->ti_flags;
 		if (flags) {
 #ifndef lint
@@ -132,26 +116,26 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 #define pf(f) { if (ti->ti_flags&TH_/**/f) { printf("%s%s", cp, "f"); cp = ","; } }
 			pf(SYN); pf(ACK); pf(FIN); pf(RST); pf(PUSH); pf(URG);
 #endif
-			printf(">");
+			DEBUG(">");
 		}
 		break;
 
 	case TA_USER:
-		printf("%s", prurequests[req&0xff]);
+		DEBUG("%s", prurequests[req&0xff]);
 		if ((req & 0xff) == PRU_SLOWTIMO)
-			printf("<%s>", tcptimers[req>>8]);
+			DEBUG("<%s>", tcptimers[req>>8]);
 		break;
 	}
 	if (tp)
-		printf(" -> %s", tcpstates[tp->t_state]);
+		DEBUG(" -> %s", tcpstates[tp->t_state]);
 	/* print out internal state of tp !?! */
-	printf("\n");
+	DEBUG("\n");
 	if (tp == 0)
 		return;
-	printf("\trcv_(nxt,wnd,up) (%x,%x,%x) snd_(una,nxt,max) (%x,%x,%x)\n",
+	DEBUG("\trcv_(nxt,wnd,up) (%x,%x,%x) snd_(una,nxt,max) (%x,%x,%x)\n",
 	    tp->rcv_nxt, tp->rcv_wnd, tp->rcv_up, tp->snd_una, tp->snd_nxt,
 	    tp->snd_max);
-	printf("\tsnd_(wl1,wl2,wnd) (%x,%x,%x)\n",
+	DEBUG("\tsnd_(wl1,wl2,wnd) (%x,%x,%x)\n",
 	    tp->snd_wl1, tp->snd_wl2, tp->snd_wnd);
 #endif /* TCPDEBUG */
 }

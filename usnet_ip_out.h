@@ -20,4 +20,7 @@ ipv4_output(
    int flags);
 
 
+int
+ip_ctloutput(int op, struct usn_socket *so, int level, int optname, usn_mbuf_t **mp);
+
 #endif //!_USNET_IP_OUT_H_

@@ -29,13 +29,18 @@
 
 #include <arpa/inet.h>
 
+#include "usnet_common.h"
 #include "usnet_socket.h"
 #include "usnet_udp.h"
 #include "usnet_in.h"
 #include "usnet_eth.h"
 #include "usnet_ip_out.h"
 #include "usnet_in_pcb.h"
-#include "usnet_common.h"
+#include "usnet_tcp_var.h"
+#include "usnet_tcp_fsm.h"
+#include "usnet_tcp_seq.h"
+#include "usnet_tcp_subr.h"
+#include "usnet_tcp_debug.h"
 
 u_long g_udp_sendspace = 9216;      /* really max datagram size */
 u_long g_udp_recvspace = 40 * (1024 + sizeof(struct usn_sockaddr_in));
@@ -195,13 +200,6 @@ release:
 }
 
 
-// functions on tcp-related socket.
-int
-tcp_usrreq(struct usn_socket *so, int req,
-           usn_mbuf_t *m, usn_mbuf_t *addr, usn_mbuf_t *control)
-{
-   return 0;
-}
 
 struct usn_socket*
 usnet_get_socket(u_int32 fd)

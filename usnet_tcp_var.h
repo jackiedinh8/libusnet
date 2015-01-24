@@ -314,9 +314,6 @@ tcp_template (struct tcpcb *);
 struct tcpcb* 
 tcp_timers (struct tcpcb *, int);
 
-void	        
-tcp_trace (int, int, struct tcpcb *, struct tcpiphdr *, int);
-
 struct tcpcb* 
 tcp_usrclosed (struct tcpcb *);
 
