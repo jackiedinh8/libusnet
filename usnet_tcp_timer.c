@@ -36,7 +36,7 @@
 #include "usnet_common.h"
 #include "usnet_tcp.h"
 #include "usnet_tcp_timer.h"
-#include "usnet_tcp_var.h"
+#include "usnet_tcp_subr.h"
 #include "usnet_tcp_fsm.h"
 #include "usnet_tcp_seq.h"
 
@@ -177,8 +177,7 @@ tcp_timers(struct tcpcb *tp, int timer)
 		if (++tp->t_rxtshift > TCP_MAXRXTSHIFT) {
 			tp->t_rxtshift = TCP_MAXRXTSHIFT;
 			g_tcpstat.tcps_timeoutdrop++;
-			tp = tcp_drop(tp, tp->t_softerror ?
-			    tp->t_softerror : ETIMEDOUT);
+			tp = tcp_drop(tp, tp->t_softerror ? tp->t_softerror : ETIMEDOUT);
 			break;
 		}
 		g_tcpstat.tcps_rexmttimeo++;
@@ -303,4 +302,5 @@ tcp_timers(struct tcpcb *tp, int timer)
 	}
 	return (tp);
 }
-//#endif /* TUBA_INCLUDE */
+
+

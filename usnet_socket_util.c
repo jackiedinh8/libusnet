@@ -36,6 +36,7 @@
 #include "usnet_socket.h"
 #include "usnet_socket.h"
 #include "usnet_common.h"
+#include "usnet_log.h"
 
 u_long g_sb_max;
 /*
@@ -184,42 +185,51 @@ sonewconn1(struct usn_socket *head, int connstatus)
 void
 sbdrop(struct sockbuf *sb, int len)
 {
-   return;
-/*
-   register struct mbuf *m, *mn;
-   struct mbuf *next;
-
-   next = (m = sb->sb_mb) ? m->m_nextpkt : 0;
+   usn_mbuf_t *m, *mn;
+   usn_mbuf_t *next;
+   // FIXME: reimplement it. 
+   //next = (m = sb->sb_mb) ? m->m_nextpkt : 0;
+   next = (m = sb->sb_mb) ? m->next : 0;
    while (len > 0) {
       if (m == 0) {
-         if (next == 0)
-            panic("sbdrop");
+         if (next == 0) {
+            // FXIME
+            DEBUG("panic: sbdrop");
+            return;
+         }
          m = next;
-         next = m->m_nextpkt;
+         //next = m->m_nextpkt;
+         next = m->next;
          continue;
       }
-      if (m->m_len > len) {
-         m->m_len -= len;
-         m->m_data += len;
+      if (m->mlen > len) {
+         m->mlen -= len;
+         m->head += len;
          sb->sb_cc -= len;
          break;
       }
-      len -= m->m_len;
+      len -= m->mlen;
+      //FIXME: review it.
       sbfree(sb, m);
-      MFREE(m, mn);
+
+      //MFREE(m, mn);
+      mn = m->next;
+      usn_free_mbuf(m);
       m = mn;
    }
-   while (m && m->m_len == 0) {
+   while (m && m->mlen == 0) {
       sbfree(sb, m);
-      MFREE(m, mn);
+      //MFREE(m, mn);
+      mn = m->next;
+      usn_free_mbuf(m);
       m = mn;
    }
    if (m) {
       sb->sb_mb = m;
-      m->m_nextpkt = next;
+      //m->m_nextpkt = next;
+      m->next = next;
    } else
       sb->sb_mb = next;
-*/
 }
 
 /*
@@ -248,30 +258,77 @@ sowakeup(struct usn_socket *so, struct sockbuf *sb)
    }   
 */
 }
+
+void
+soqinsque(struct usn_socket *head, struct usn_socket *so, int q)
+{
+   struct usn_socket **prev;
+   so->so_head = head;
+   if (q == 0) {
+      head->so_q0len++;
+      so->so_q0 = 0;
+      for (prev = &(head->so_q0); *prev; )
+         prev = &((*prev)->so_q0);
+   } else {
+      head->so_qlen++;
+      so->so_q = 0;
+      for (prev = &(head->so_q); *prev; )
+         prev = &((*prev)->so_q);
+   }   
+   *prev = so; 
+}
+
+int
+soqremque(struct usn_socket *so, int q)
+{
+   struct usn_socket *head, *prev, *next;
+
+   head = so->so_head;
+   prev = head;
+   for (;;) {
+      next = q ? prev->so_q : prev->so_q0;
+      if (next == so) 
+         break;
+      if (next == 0)
+         return (0);
+      prev = next;
+   }   
+   if (q == 0) {
+      prev->so_q0 = next->so_q0;
+      head->so_q0len--;
+   } else {
+      prev->so_q = next->so_q;
+      head->so_qlen--;
+   }   
+   next->so_q0 = next->so_q = 0;
+   next->so_head = 0;
+   return (1);
+}
+
 void
 soisconnected(struct usn_socket *so)
 {
-   return;
-/*
-   struct socket *head = so->so_head;
+   struct usn_socket *head = so->so_head;
 
-   so->so_state &= ~(SS_ISCONNECTING|SS_ISDISCONNECTING|SS_ISCONFIRMING);
-   so->so_state |= SS_ISCONNECTED;
+   so->so_state &= ~(USN_ISCONNECTING|USN_ISDISCONNECTING|USN_ISCONFIRMING);
+   so->so_state |= USN_ISCONNECTED;
    if (head && soqremque(so, 0)) {
       soqinsque(head, so, 1);
       sorwakeup(head);
-      wakeup((caddr_t)&head->so_timeo);
+      // FIXME: implement it.
+      //wakeup((caddr_t)&head->so_timeo);
    } else {
-      wakeup((caddr_t)&so->so_timeo);
+      // FIXME: implement it.
+      //wakeup((caddr_t)&so->so_timeo);
       sorwakeup(so);
       sowwakeup(so);
    }
-*/
 }
 
 void  
 sohasoutofband(struct usn_socket *so)
 {     
+   // FIXME: implement it.
    return;
 /*
    struct proc *p;
@@ -297,6 +354,7 @@ socantrcvmore( struct usn_socket *so)
 int
 soabort( struct usn_socket *so)
 {        
+   // FIXME: implement it.
    return 0;
 /*   
    return (

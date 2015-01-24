@@ -46,12 +46,18 @@ usn_free_buf(u_char *m)
 void
 usn_free_mbuf(usn_mbuf_t *m)
 {
+   usn_mbuf_t *n;
+
    if ( m == NULL )
       return;
    m->refs--;
    DEBUG("free buffer, ptr=%p, refs=%d", m, m->refs);
-   if ( m->refs == 0 )
+   if ( m->refs == 0 ) {
+      n = m->next;
+      if ( n )
+         n->prev = 0;
       usn_slab_free(g_slab_pool, m);
+   }
 
    m = NULL;
    return;

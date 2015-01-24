@@ -237,6 +237,14 @@ struct usn_sockproto {
    (sb)->sb_mbcnt += m->end - m->head; \
 }
 
+/* adjust counters in sb reflecting freeing of m */
+#define  sbfree(sb, m) { \
+      (sb)->sb_cc -= (m)->mlen; \
+      (sb)->sb_mbcnt -= BUF_MSIZE; \
+      /*if ((m)->m_flags & M_EXT)*/ \
+         /*(sb)->sb_mbcnt -= (m)->m_ext.ext_size;*/ \
+}
+
 int32 
 sbappendaddr( struct sockbuf *sb, struct usn_sockaddr *asa, 
                     usn_mbuf_t *m0, usn_mbuf_t *control);
@@ -270,6 +278,12 @@ sbdrop(struct sockbuf *sb, int len);
 #define  sowwakeup(so)  sowakeup((so), &(so)->so_snd)
 void
 sowakeup(struct usn_socket *so, struct sockbuf *sb);
+
+void
+soqinsque(struct usn_socket *head, struct usn_socket *so, int q);
+
+int
+soqremque(struct usn_socket *so, int q);
 
 void
 soisconnected(struct usn_socket *so);

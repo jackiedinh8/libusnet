@@ -249,20 +249,19 @@ tcp_newtcpcb( struct inpcb *inp)
  * the specified error.  If connection is synchronized,
  * then send a RST to peer.
  */
-struct tcpcb* 
-tcp_drop(struct tcpcb* tp, int error)
+struct tcpcb* tcp_drop(struct tcpcb* tp, u_int error)
 {
 	struct usn_socket *so = tp->t_inpcb->inp_socket;
 
 	if (TCPS_HAVERCVDSYN(tp->t_state)) {
 		tp->t_state = TCPS_CLOSED;
-		(void) tcp_output(tp);
+		tcp_output(tp);
 		g_tcpstat.tcps_drops++;
 	} else
 		g_tcpstat.tcps_conndrops++;
-	if (errno == ETIMEDOUT && tp->t_softerror)
-		errno = tp->t_softerror;
-	so->so_error = errno;
+	if (error == ETIMEDOUT && tp->t_softerror)
+		error = tp->t_softerror;
+	so->so_error = error;
 	return (tcp_close(tp));
 }
 
@@ -272,7 +271,7 @@ tcp_drop(struct tcpcb* tp, int error)
  *	discard internet protocol block
  *	wake up any sleepers
  */
-struct tcpcb *
+struct tcpcb*
 tcp_close(struct tcpcb *tp)
 {
 	struct tcpiphdr *t;

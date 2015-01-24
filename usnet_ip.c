@@ -1085,6 +1085,8 @@ ip_stripoptions( usn_mbuf_t *m, usn_mbuf_t *mopt)
    olen = (ip->ip_hl<<2) - sizeof (usn_ip_t);
    opts = (caddr_t)(ip + 1);
    i = m->mlen - (sizeof (usn_ip_t) + olen);
+   // TODO: optimizigng by moving ip header 
+   //       instead of moving data
    bcopy(opts  + olen, opts, (unsigned)i);
    m->mlen -= olen;
    ip->ip_hl = sizeof(usn_ip_t) >> 2;

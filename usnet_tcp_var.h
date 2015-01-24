@@ -101,10 +101,10 @@ struct tcpcb {
 					 */
 /* congestion control (for slow start, source quench, retransmit after loss) */
 	u_long	snd_cwnd;		/* congestion-controlled window */
-	u_long	snd_ssthresh;		/* snd_cwnd size threshhold for
-					 * for slow start exponential to
-					 * linear switch
-					 */
+	u_long	snd_ssthresh;	/* snd_cwnd size threshhold for
+					             * for slow start exponential to
+					             * linear switch
+					             */
 /*
  * transmit timing stuff.  See below for scale of srtt and rttvar.
  * "Variance" is actually smoothed difference.
@@ -329,9 +329,6 @@ tcp_xmit_timer (struct tcpcb *, int);
 
 void   
 tcp_quench (struct inpcb *, int);
-
-struct 
-tcpcb* tcp_drop(struct tcpcb* tp, int error);
 
 #endif // USNET_TCP_VAR_H_
 
