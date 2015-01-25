@@ -42,6 +42,7 @@
 #include "usnet_ip_out.h"
 #include "usnet_ip_var.h"
 #include "usnet_udp.h"
+#include "usnet_tcp.h"
 #include "usnet_arp.h"
 
 #undef	ADDCARRY
@@ -919,8 +920,9 @@ ours:
     * Attempt reassembly; if it succeeds, proceed.
     * ip_reass() will return a different mbuf.
     */
-   DEBUG("protocol=%d, ip_len=%d", pip->ip_p, ntohs(pip->ip_len));
-   if (pip->ip_off & ( IP_MF | IP_OFFMASK )) {
+   DEBUG("protocol=%d, ip_len=%d, ip_off=%d", 
+           pip->ip_p, ntohs(pip->ip_len), pip->ip_off);
+   if (ntohs(pip->ip_off) & ( IP_MF | IP_OFFMASK )) {
       DEBUG("do reassembly");
       //ipstat.ips_fragments++;
       m = ip_reass(m); 
@@ -938,7 +940,6 @@ ours:
 
    // Switch out to protocol's input routine.
    //ipstat.ips_delivered++;
-   
    // handle TCP, UDP, and ICMP
    DEBUG("protocol=%d, header_len=%d, ip_len=%d", pip->ip_p, hlen, ntohs(pip->ip_len));
 
@@ -950,7 +951,7 @@ ours:
          udp_input(m, hlen);
          break;
       case IPPROTO_TCP:
-         //tcp_input(m, hlen);
+         tcp_input(m, hlen);
          break;
       default:
          break;

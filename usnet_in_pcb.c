@@ -96,7 +96,8 @@ in_pcballoc (struct usn_socket *so, struct inpcb *head)
    inp->inp_next = head->inp_next;
    head->inp_next = inp;
    inp->inp_prev = head;
-   inp->inp_next->inp_prev = inp;
+   if ( inp->inp_next )
+      inp->inp_next->inp_prev = inp;
     
    so->so_pcb = (caddr_t)inp;
 
@@ -148,6 +149,7 @@ in_pcbbind (struct inpcb *inp, usn_mbuf_t *nam)
       //   return (EAFNOSUPPORT);
 
       lport = sin->sin_port;
+      DEBUG("listen on port: %d", lport);
       if (USN_IN_MULTICAST(ntohl(sin->sin_addr.s_addr))) {
          /*
           * Treat SO_REUSEADDR as SO_REUSEPORT for multicast;

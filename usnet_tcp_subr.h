@@ -32,13 +32,6 @@
 
 #include "usnet_tcp_var.h"
 
-extern int g_tcp_mssdflt;
-
-extern int   g_max_linkhdr;         /* largest link-level header */
-extern int   g_max_iphdr;         /* largest ip header */
-extern int   g_max_tcphdr;         /* largest tcp header */
-extern int   g_max_protohdr;        /* largest protocol header */
-
 struct tcpcb*
 tcp_drop(struct tcpcb* tp, u_int error);
 

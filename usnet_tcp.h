@@ -37,6 +37,7 @@
 #define _USNET_TCP_H_
 
 #include "usnet_types.h"
+#include "usnet_buf.h"
 #include "usnet_order32.h"
 
 typedef	u_long	tcp_seq;
@@ -103,6 +104,21 @@ struct tcphdr {
 #define TCP_NODELAY	0x01	/* don't delay send to coalesce packets */
 #define TCP_MAXSEG	0x02	/* set maximum segment size */
 
+extern int g_tcp_mssdflt;// = TCP_MSS;
+extern int g_tcp_rttdflt;// = TCPTV_SRTTDFLT / PR_SLOWHZ;
+extern int g_tcp_do_rfc1323;// = 1;
+
+extern int g_tcp_mssdflt;
+extern int g_max_linkhdr;         /* largest link-level header */
+extern int g_max_iphdr;         /* largest ip header */
+extern int g_max_tcphdr;         /* largest tcp header */
+extern int g_max_protohdr;        /* largest protocol header */
+
+void 
+usnet_tcp_init();
+
+void
+tcp_input(usn_mbuf_t *m, int iphlen);
 
 #endif // _USNET_TCP_H_
 

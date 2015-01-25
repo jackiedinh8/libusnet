@@ -26,16 +26,19 @@ OBJS    := stack.o usnet_arp.o usnet_eth.o usnet_ip.o usnet_core.o usnet_slab.o 
            usnet_socket.o usnet_socket_util.o usnet_order32.o\
            usnet_tcp_subr.o usnet_tcp_var.o usnet_tcp_timer.o usnet_tcp_seq.o\
            usnet_tcp_output.o usnet_tcp_input.o usnet_tcp_fsm.o usnet_tcp_usrreq.o\
-           usnet_tcp_debug.o
+           usnet_tcp_debug.o usnet_tcp.o
 
 BIN     := libusnet.a
 
-all: $(BIN) stack
+all: $(BIN) stack udp_sample
 
 $(BIN):$(OBJS)
 	ar -rs $@ $^
 
 stack:stack.o libusnet.a
+	$(CC) $(CFLAGS) -o $@ $(INCLUDE) $^ $(LIB)
+
+udp_sample:usnet_udp_sample.o libusnet.a
 	$(CC) $(CFLAGS) -o $@ $(INCLUDE) $^ $(LIB)
 
 %.o: %.cpp

@@ -228,6 +228,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	ti->ti_x1 = 0;
 	ti->ti_len = (u_short)tlen;
 	HTONS(ti->ti_len);
+   DEBUG("tcp cksum");
    ti->ti_sum = in_cksum(m, len);
 	if (ti->ti_sum) {
 		g_tcpstat.tcps_rcvbadsum++;

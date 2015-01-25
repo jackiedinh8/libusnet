@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "usnet_common.h"
 #include "usnet_core.h"
 #include "usnet_log.h"
 #include "usnet_ip.h"
@@ -26,7 +27,7 @@ void accept_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
       return;
    }
 
-   DEBUG("process data: len=%d \n, %s", buf->len, buf->data);
+   DEBUG("process data: len=%d \n", buf->len);
 //#define TEST_BCAST
 #ifdef TEST_BCAST
    int32 i, cnt, num, ret;
@@ -69,9 +70,9 @@ int main(int argc, char *argv[])
 
    usnet_setup(argc, argv);
 
-   fd = usnet_socket(0,0,0);
+   fd = usnet_socket(USN_AF_INET,SOCK_DGRAM,0);
 
-   ret = usnet_bind(fd, inet_addr("10.10.10.8"), 35355);
+   ret = usnet_bind(fd, inet_addr("10.10.10.2"), 35355);
    if ( ret < 0 )
       printf("binding error: ret=%d", ret);
   

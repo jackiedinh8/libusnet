@@ -42,6 +42,7 @@
 #include "usnet_if.h"
 #include "usnet_ip_var.h"
 #include "usnet_udp.h"
+#include "usnet_tcp.h"
 #include "usnet_slab.h"
 
 struct nm_desc *g_nmd;
@@ -118,6 +119,7 @@ usnet_init( struct nm_desc *gg_nmd, const char *dev_name, u_int flags)
    usnet_route_init();
    usnet_network_init();
    usnet_udp_init();
+   usnet_tcp_init();
    usnet_ipv4_init();
    usnet_socket_init();
 
