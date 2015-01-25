@@ -300,7 +300,7 @@ int
 tcp_reass (struct tcpcb *, struct tcpiphdr *, usn_mbuf_t *);
 
 void	 
-tcp_respond (struct tcpcb *, struct tcpiphdr *, usn_mbuf_t *, u_long, u_long, int);
+tcp_respond (struct tcpcb *, struct tcpiphdr *, usn_mbuf_t *, u_int32, u_int32, int32);
 
 void	 
 tcp_setpersist (struct tcpcb *);

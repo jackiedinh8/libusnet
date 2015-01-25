@@ -259,14 +259,14 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 		optp = mtod(m, u_char *) + sizeof (struct tcpiphdr);
 
       //	Do quick retrieval of timestamp options ("options
-      // prediction?").  If timestamp is the only option and it's
+      // prediction?"). If timestamp is the only option and it's
       // formatted as recommended in RFC 1323 appendix A, we
       // quickly get the values now and not bother calling
       // tcp_dooptions(), etc.
 		if ((optlen == TCPOLEN_TSTAMP_APPA ||
 		     (optlen > TCPOLEN_TSTAMP_APPA &&
 			optp[TCPOLEN_TSTAMP_APPA] == TCPOPT_EOL)) &&
-		     *(u_long *)optp == htonl(TCPOPT_TSTAMP_HDR) &&
+		     *(u_int *)optp == htonl(TCPOPT_TSTAMP_HDR) &&
 		     (ti->ti_flags & TH_SYN) == 0) {
 			ts_present = 1;
 			ts_val = ntohl(*(u_long *)(optp + 4));

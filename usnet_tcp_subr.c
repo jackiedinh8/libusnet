@@ -105,7 +105,7 @@ tcp_template(struct tcpcb *tp)
  */
 void
 tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
-	         usn_mbuf_t *m, tcp_seq ack, tcp_seq seq, int flags)
+	         usn_mbuf_t *m, tcp_seq ack, tcp_seq seq, int32 flags)
 {
 	int tlen;
 	int win = 0;

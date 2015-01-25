@@ -40,7 +40,7 @@
 #include "usnet_buf.h"
 #include "usnet_order32.h"
 
-typedef	u_long	tcp_seq;
+typedef u_int32 tcp_seq;
 /*
  * TCP header.
  * Per RFC 793, September, 1981.
