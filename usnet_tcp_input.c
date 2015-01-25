@@ -222,13 +222,15 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 
 
 	// Checksum extended TCP header and data.
-	tlen = ((usn_ip_t *)ti)->ip_len;
+   dump_buffer((char*)m->head,m->mlen,"tcp");
+	tlen = ntohs(((usn_ip_t *)ti)->ip_len);
 	len = sizeof (usn_ip_t) + tlen;
 	ti->ti_next = ti->ti_prev = 0;
 	ti->ti_x1 = 0;
 	ti->ti_len = (u_short)tlen;
 	HTONS(ti->ti_len);
    DEBUG("tcp cksum");
+   dump_buffer((char*)m->head,m->mlen,"tcp");
    ti->ti_sum = in_cksum(m, len);
 	if (ti->ti_sum) {
 		g_tcpstat.tcps_rcvbadsum++;

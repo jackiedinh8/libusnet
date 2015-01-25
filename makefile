@@ -30,7 +30,7 @@ OBJS    := stack.o usnet_arp.o usnet_eth.o usnet_ip.o usnet_core.o usnet_slab.o 
 
 BIN     := libusnet.a
 
-all: $(BIN) stack udp_sample
+all: $(BIN) stack
 
 $(BIN):$(OBJS)
 	ar -rs $@ $^
