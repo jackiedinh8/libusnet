@@ -252,9 +252,9 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 #ifdef DUMP_PAYLOAD
    dump_buffer((char*)m->head, m->mlen, "ip4");
 #endif
-
-   DEBUG("check mtu, ip_len=%d, mtu=%d", htons((u_short)ip->ip_len), ifp->if_mtu);
-   if (htons((u_short)ip->ip_len) <= ifp->if_mtu) {
+   DEBUG("check mtu, ip_len=%d(%d), mtu=%d", ip->ip_len, htons((u_short)ip->ip_len), ifp->if_mtu);
+   if (ip->ip_len <= ifp->if_mtu) {
+      ip->ip_len = htons((u_short)ip->ip_len);
       ip->ip_sum = 0;
       ip->ip_sum = in_cksum(m, hlen);
 

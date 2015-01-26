@@ -416,7 +416,7 @@ u_long	tcp_recvspace = 1024*8;
 int
 tcp_attach( struct usn_socket *so)
 {
-	register struct tcpcb *tp;
+	struct tcpcb *tp;
 	struct inpcb *inp;
 	int error;
 

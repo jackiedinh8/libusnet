@@ -1015,6 +1015,7 @@ ip_drain()
 usn_mbuf_t *
 ip_srcroute()
 {
+   // FIXME: implement it.
    return 0;
 /*
    struct in_addr *p, *q;

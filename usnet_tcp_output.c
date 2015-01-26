@@ -61,20 +61,19 @@ tcp_output(struct tcpcb *tp)
 	u_char opt[MAX_TCPOPTLEN];
 	unsigned optlen, hdrlen;
 	int idle, sendalot;
+	u_short mss;
 
-
-	 // Determine length of data that should be transmitted,
-	 // and flags that will be used.
-	 // If there is some data or critical controls (SYN, RST)
-	 // to send, then transmit; otherwise, investigate further.
-
+   //memset(opt, 0, MAX_TCPOPTLEN);
+	// Determine length of data that should be transmitted,
+	// and flags that will be used.
+	// If there is some data or critical controls (SYN, RST)
+	// to send, then transmit; otherwise, investigate further.
 	idle = (tp->snd_max == tp->snd_una);
 	if (idle && tp->t_idle >= tp->t_rxtcur)
 
-		 // We have been idle for "a while" and no acks are
-		 // expected to clock out any data we send --
-		 // slow start to get ack "clock" running again.
-
+		// We have been idle for "a while" and no acks are
+		// expected to clock out any data we send --
+		// slow start to get ack "clock" running again.
 		tp->snd_cwnd = tp->t_maxseg;
 again:
 	sendalot = 0;
@@ -83,29 +82,26 @@ again:
 
 	flags = g_tcp_outflags[tp->t_state];
 
-	 // If in persist timeout with window of 0, send 1 byte.
-	 // Otherwise, if window is small but nonzero
-	 // and timer expired, we will send what we can
-	 // and go to transmit state.
-
+	// If in persist timeout with window of 0, send 1 byte.
+	// Otherwise, if window is small but nonzero
+	// and timer expired, we will send what we can
+	// and go to transmit state.
 	if (tp->t_force) {
 		if (win == 0) {
-
-			 // If we still have some data to send, then
-			 // clear the FIN bit.  Usually this would
-			 // happen below when it realizes that we
-			 // aren't sending all the data.  However,
-			 // if we have exactly 1 byte of unset data,
-			 // then it won't clear the FIN bit below,
-			 // and if we are in persist state, we wind
-			 // up sending the packet without recording
-			 // that we sent the FIN bit.
-			 
-			 // We can't just blindly clear the FIN bit,
-			 // because if we don't have any more data
-			 // to send then the probe will be the FIN
-			 // itself.
-
+			// If we still have some data to send, then
+			// clear the FIN bit.  Usually this would
+			// happen below when it realizes that we
+			// aren't sending all the data.  However,
+			// if we have exactly 1 byte of unset data,
+			// then it won't clear the FIN bit below,
+			// and if we are in persist state, we wind
+			// up sending the packet without recording
+			// that we sent the FIN bit.
+			
+			// We can't just blindly clear the FIN bit,
+			// because if we don't have any more data
+			// to send then the probe will be the FIN
+			// itself.
 			if (off < so->so_snd.sb_cc)
 				flags &= ~TH_FIN;
 			win = 1;
@@ -118,16 +114,14 @@ again:
 	len = min(so->so_snd.sb_cc, win) - off;
 
 	if (len < 0) {
-
-		 // If FIN has been sent but not acked,
-		 // but we haven't been called to retransmit,
-		 // len will be -1.  Otherwise, window shrank
-		 // after we sent into it.  If window shrank to 0,
-		 // cancel pending retransmit and pull snd_nxt
-		 // back to (closed) window.  We will enter persist
-		 // state below.  If the window didn't close completely,
-		 // just wait for an ACK.
-
+		// If FIN has been sent but not acked,
+		// but we haven't been called to retransmit,
+		// len will be -1.  Otherwise, window shrank
+		// after we sent into it.  If window shrank to 0,
+		// cancel pending retransmit and pull snd_nxt
+		// back to (closed) window.  We will enter persist
+		// state below.  If the window didn't close completely,
+		// just wait for an ACK.
 		len = 0;
 		if (win == 0) {
 			tp->t_timer[TCPT_REXMT] = 0;
@@ -141,18 +135,17 @@ again:
 	if (SEQ_LT(tp->snd_nxt + len, tp->snd_una + so->so_snd.sb_cc))
 		flags &= ~TH_FIN;
 
+   // FIXME: check return value.
 	win = sbspace(&so->so_rcv);
 
-
-	 // Sender silly window avoidance.  If connection is idle
-	 // and can send all data, a maximum segment,
-	 // at least a maximum default-size segment do it,
-	 // or are forced, do it; otherwise don't bother.
-	 // If peer's buffer is tiny, then send
-	 // when window is at least half open.
-	 // If retransmitting (possibly after persist timer forced us
-	 // to send into a small window), then must resend.
-
+	// Sender silly window avoidance.  If connection is idle
+	// and can send all data, a maximum segment,
+	// at least a maximum default-size segment do it,
+	// or are forced, do it; otherwise don't bother.
+	// If peer's buffer is tiny, then send
+	// when window is at least half open.
+	// If retransmitting (possibly after persist timer forced us
+	// to send into a small window), then must resend.
 	if (len) {
 		if (len == tp->t_maxseg)
 			goto send;
@@ -167,19 +160,16 @@ again:
 			goto send;
 	}
 
-
-	 // Compare available window to amount of window
-	 // known to peer (as advertised window less
-	 // next expected input).  If the difference is at least two
-	 // max size segments, or at least 50% of the maximum possible
-	 // window, then want to send a window update to peer.
-
+	// Compare available window to amount of window
+	// known to peer (as advertised window less
+	// next expected input).  If the difference is at least two
+	// max size segments, or at least 50% of the maximum possible
+	// window, then want to send a window update to peer.
 	if (win > 0) {
 
-		 // "adv" is the amount we can increase the window,
-		 // taking into account that we are limited by
-		 // TCP_MAXWIN << tp->rcv_scale.
-
+		// "adv" is the amount we can increase the window,
+		// taking into account that we are limited by
+		// TCP_MAXWIN << tp->rcv_scale.
 		long adv = min(win, (long)TCP_MAXWIN << tp->rcv_scale) -
 			(tp->rcv_adv - tp->rcv_nxt);
 
@@ -189,9 +179,7 @@ again:
 			goto send;
 	}
 
-
-	 // Send if we owe peer an ACK.
-
+	// Send if we owe peer an ACK.
 	if (tp->t_flags & TF_ACKNOW)
 		goto send;
 	if (flags & (TH_SYN|TH_RST))
@@ -199,92 +187,82 @@ again:
 	if (SEQ_GT(tp->snd_up, tp->snd_una))
 		goto send;
 
-	 // If our state indicates that FIN should be sent
-	 // and we have not yet done so, or we're retransmitting the FIN,
-	 // then we need to send.
-
+	// If our state indicates that FIN should be sent
+	// and we have not yet done so, or we're retransmitting the FIN,
+	// then we need to send.
 	if (flags & TH_FIN &&
 	    ((tp->t_flags & TF_SENTFIN) == 0 || tp->snd_nxt == tp->snd_una))
 		goto send;
 
-
-	 // TCP window updates are not reliable, rather a polling protocol
-	 // using ``persist'' packets is used to insure receipt of window
-	 // updates.  The three ``states'' for the output side are:
-	 //	idle			not doing retransmits or persists
-	 //	persisting		to move a small or zero window
-	 //	(re)transmitting	and thereby not persisting
+	// TCP window updates are not reliable, rather a polling protocol
+	// using ``persist'' packets is used to insure receipt of window
+	// updates.  The three ``states'' for the output side are:
+	//	idle			not doing retransmits or persists
+	//	persisting		to move a small or zero window
+	//	(re)transmitting	and thereby not persisting
 	 
-	 // tp->t_timer[TCPT_PERSIST]
-	 // is set when we are in persist state.
-	 // tp->t_force
-	 // is set when we are called to send a persist packet.
-	 // tp->t_timer[TCPT_REXMT]
-	 // is set when we are retransmitting
-	 // The output side is idle when both timers are zero.
-	 //
-	 // If send window is too small, there is data to transmit, and no
-	 // retransmit or persist is pending, then go to persist state.
-	 // If nothing happens soon, send when timer expires:
-	 // if window is nonzero, transmit what we can,
-	 // otherwise force out a byte.
-
+	// tp->t_timer[TCPT_PERSIST]
+	// is set when we are in persist state.
+	// tp->t_force
+	// is set when we are called to send a persist packet.
+	// tp->t_timer[TCPT_REXMT]
+	// is set when we are retransmitting
+	// The output side is idle when both timers are zero.
+	//
+	// If send window is too small, there is data to transmit, and no
+	// retransmit or persist is pending, then go to persist state.
+	// If nothing happens soon, send when timer expires:
+	// if window is nonzero, transmit what we can,
+	// otherwise force out a byte.
 	if (so->so_snd.sb_cc && tp->t_timer[TCPT_REXMT] == 0 &&
 	    tp->t_timer[TCPT_PERSIST] == 0) {
 		tp->t_rxtshift = 0;
 		tcp_setpersist(tp);
 	}
 
-
-	 // No reason to send a segment, just return.
-
+	// No reason to send a segment, just return.
 	return (0);
 
 send:
 
-	 // Before ESTABLISHED, force sending of initial options
-	 // unless TCP set not to do any options.
-	 // NOTE: we assume that the IP/TCP header plus TCP options
-	 // always fit in a single mbuf, leaving room for a maximum
-	 // link header, i.e.
-	 // max_linkhdr + sizeof (struct tcpiphdr) + optlen <= MHLEN
-
+	// Before ESTABLISHED, force sending of initial options
+	// unless TCP set not to do any options.
+	// NOTE: we assume that the IP/TCP header plus TCP options
+	// always fit in a single mbuf, leaving room for a maximum
+	// link header, i.e.
+	// max_linkhdr + sizeof (struct tcpiphdr) + optlen <= MHLEN
 	optlen = 0;
 	hdrlen = sizeof (struct tcpiphdr);
 	if (flags & TH_SYN) {
 		tp->snd_nxt = tp->iss;
 		//if ((tp->t_flags & TF_NOOPT) == 0) {
-			u_short mss;
-
-			opt[0] = TCPOPT_MAXSEG;
-			opt[1] = 4;
-			mss = htons((u_short) tcp_mss(tp, 0));
-			bcopy((caddr_t)&mss, (caddr_t)(opt + 2), sizeof(mss));
-			optlen = 4;
+		opt[0] = TCPOPT_MAXSEG;
+		opt[1] = 4;
+		mss = htons((u_short) tcp_mss(tp, 0));
+		bcopy((caddr_t)&mss, (caddr_t)(opt + 2), sizeof(mss));
+		optlen = 4;
 	 
-			if ((tp->t_flags & TF_REQ_SCALE) &&
-			    ((flags & TH_ACK) == 0 ||
-			    (tp->t_flags & TF_RCVD_SCALE))) {
-				*((u_long *) (opt + optlen)) = htonl(
-					TCPOPT_NOP << 24 |
-					TCPOPT_WINDOW << 16 |
-					TCPOLEN_WINDOW << 8 |
-					tp->request_r_scale);
-				optlen += 4;
-			}
+		if ((tp->t_flags & TF_REQ_SCALE) &&
+		    ((flags & TH_ACK) == 0 ||
+		    (tp->t_flags & TF_RCVD_SCALE))) {
+			*((u_int *) (opt + optlen)) = htonl(
+				TCPOPT_NOP << 24 |
+				TCPOPT_WINDOW << 16 |
+				TCPOLEN_WINDOW << 8 |
+				tp->request_r_scale);
+			optlen += 4;
+		}
 		//}
  	}
- 
 
-	 // Send a timestamp and echo-reply if this is a SYN and our side 
-	 // wants to use timestamps (TF_REQ_TSTMP is set) or both our side
-	 // and our peer have sent timestamps in our SYN's.
-
+	// Send a timestamp and echo-reply if this is a SYN and our side 
+	// wants to use timestamps (TF_REQ_TSTMP is set) or both our side
+	// and our peer have sent timestamps in our SYN's.
  	if ((tp->t_flags & (TF_REQ_TSTMP|TF_NOOPT)) == TF_REQ_TSTMP &&
  	     (flags & TH_RST) == 0 &&
  	    ((flags & (TH_SYN|TH_ACK)) == TH_SYN ||
 	     (tp->t_flags & TF_RCVD_TSTMP))) {
-		u_long *lp = (u_long *)(opt + optlen);
+		u_int *lp = (u_int *)(opt + optlen);
  
  		// Form timestamp option as shown in appendix A of RFC 1323.
  		*lp++ = htonl(TCPOPT_TSTAMP_HDR);
@@ -296,9 +274,8 @@ send:
  	hdrlen += optlen;
  
 
-	 // Adjust data length if insertion of options will
-	 // bump the packet length beyond the t_maxseg length.
-
+	// Adjust data length if insertion of options will
+	// bump the packet length beyond the t_maxseg length.
 	if (len > tp->t_maxseg - optlen) {
 		len = tp->t_maxseg - optlen;
 		sendalot = 1;
@@ -312,10 +289,9 @@ send:
 #endif
 
 
-	 // Grab a header mbuf, attaching a copy of data to
-	 // be transmitted, and initialize the header from
-	 // the template for sends on this connection.
-
+	// Grab a header mbuf, attaching a copy of data to
+	// be transmitted, and initialize the header from
+	// the template for sends on this connection.
 	if (len) {
 		if (tp->t_force && len == 1)
 			g_tcpstat.tcps_sndprobe++;
@@ -352,11 +328,10 @@ send:
 		m->mlen += hdrlen;
 
 
-		 // If we're sending everything we've got, set PUSH.
-		 // (This will keep happy those implementations which only
-		 // give data to the user when a buffer fills or
-		 // a PUSH comes in.)
-
+		// If we're sending everything we've got, set PUSH.
+		// (This will keep happy those implementations which only
+		// give data to the user when a buffer fills or
+		// a PUSH comes in.)
 		if (off + len == so->so_snd.sb_cc)
 			flags |= TH_PUSH;
 	} else {
@@ -377,7 +352,6 @@ send:
 		}
 		m->head += g_max_linkhdr;
 		m->mlen = hdrlen; // FIXME: which len to be set?
-      
 	}
 
 	ti = mtod(m, struct tcpiphdr *);
@@ -386,26 +360,24 @@ send:
 	bcopy((caddr_t)tp->t_template, (caddr_t)ti, sizeof (struct tcpiphdr));
 
 
-	 // Fill in fields, remembering maximum advertised
-	 // window for use in delaying messages about window sizes.
-	 // If resending a FIN, be sure not to use a new sequence number.
-
+	// Fill in fields, remembering maximum advertised
+	// window for use in delaying messages about window sizes.
+	// If resending a FIN, be sure not to use a new sequence number.
 	if (flags & TH_FIN && tp->t_flags & TF_SENTFIN && 
 	    tp->snd_nxt == tp->snd_max)
 		tp->snd_nxt--;
 
-	 // If we are doing retransmissions, then snd_nxt will
-	 // not reflect the first unsent octet.  For ACK only
-	 // packets, we do not want the sequence number of the
-	 // retransmitted packet, we want the sequence number
-	 // of the next unsent octet.  So, if there is no data
-	 // (and no SYN or FIN), use snd_max instead of snd_nxt
-	 // when filling in ti_seq.  But if we are in persist
-	 // state, snd_max might reflect one byte beyond the
-	 // right edge of the window, so use snd_nxt in that
-	 // case, since we know we aren't doing a retransmission.
-	 // (retransmit and persist are mutually exclusive...)
-
+	// If we are doing retransmissions, then snd_nxt will
+	// not reflect the first unsent octet.  For ACK only
+	// packets, we do not want the sequence number of the
+	// retransmitted packet, we want the sequence number
+	// of the next unsent octet.  So, if there is no data
+	// (and no SYN or FIN), use snd_max instead of snd_nxt
+	// when filling in ti_seq.  But if we are in persist
+	// state, snd_max might reflect one byte beyond the
+	// right edge of the window, so use snd_nxt in that
+	// case, since we know we aren't doing a retransmission.
+	// (retransmit and persist are mutually exclusive...)
 	if (len || (flags & (TH_SYN|TH_FIN)) || tp->t_timer[TCPT_PERSIST])
 		ti->ti_seq = htonl(tp->snd_nxt);
 	else
@@ -417,9 +389,8 @@ send:
 	}
 	ti->ti_flags = flags;
 
-	 // Calculate receive window.  Don't shrink window,
-	 // but avoid silly window syndrome.
-
+	// Calculate receive window.  Don't shrink window,
+	// but avoid silly window syndrome.
 	if (win < (long)(so->so_rcv.sb_hiwat / 4) && win < (long)tp->t_maxseg)
 		win = 0;
 	if (win > (long)TCP_MAXWIN << tp->rcv_scale)
@@ -431,10 +402,10 @@ send:
 		ti->ti_urp = htons((u_short)(tp->snd_up - tp->snd_nxt));
 		ti->ti_flags |= TH_URG;
 	} else
-		 // If no urgent pointer to send, then we pull
-		 // the urgent pointer to the left edge of the send window
-		 // so that it doesn't drift into the send window on sequence
-		 // number wraparound.
+		// If no urgent pointer to send, then we pull
+		// the urgent pointer to the left edge of the send window
+		// so that it doesn't drift into the send window on sequence
+		// number wraparound.
 		tp->snd_up = tp->snd_una;		// drag it along
 
 	// Put TCP length in extended header, and then

@@ -184,39 +184,45 @@ soisdisconnected(struct usn_socket *so)
 struct usn_socket*
 sonewconn1(struct usn_socket *head, int connstatus)
 {
-   return 0;
-/*
    struct usn_socket *so;
    int soqueue = connstatus ? 1 : 0;
 
    if (head->so_qlen + head->so_q0len > 3 * head->so_qlimit / 2)
-      return ((struct socket *)0);
-   MALLOC(so, struct socket *, sizeof(*so), M_SOCKET, M_DONTWAIT);
+      return ((struct usn_socket *)0);
+
+   //MALLOC(so, struct socket *, sizeof(*so), M_SOCKET, M_DONTWAIT);
+   so = (struct usn_socket*)usn_get_buf(0, sizeof(*so));
    if (so == NULL) 
-      return ((struct socket *)0);
+      return ((struct usn_socket *)0);
+
    bzero((caddr_t)so, sizeof(*so));
    so->so_type = head->so_type;
    so->so_options = head->so_options &~ SO_ACCEPTCONN;
    so->so_linger = head->so_linger;
-   so->so_state = head->so_state | SS_NOFDREF;
-   so->so_proto = head->so_proto;
+   so->so_state = head->so_state | USN_NOFDREF;
+   // FIXME: do we need?
+   //so->so_proto = head->so_proto;
    so->so_timeo = head->so_timeo;
    so->so_pgid = head->so_pgid;
-   (void) soreserve(so, head->so_snd.sb_hiwat, head->so_rcv.sb_hiwat);
+   so->so_usrreq = head->so_usrreq;
+
+   soreserve(so, head->so_snd.sb_hiwat, head->so_rcv.sb_hiwat);
+
    soqinsque(head, so, soqueue);
-   if ((*so->so_proto->pr_usrreq)(so, PRU_ATTACH,
-       (struct mbuf *)0, (struct mbuf *)0, (struct mbuf *)0)) {
-      (void) soqremque(so, soqueue);
-      (void) free((caddr_t)so, M_SOCKET);
-      return ((struct socket *)0);
+
+   if ((*so->so_usrreq)(so, PRU_ATTACH,
+       (usn_mbuf_t *)0, (usn_mbuf_t *)0, (usn_mbuf_t *)0)) {
+      soqremque(so, soqueue);
+      usn_free_buf((u_char*)so);
+      return ((struct usn_socket *)0);
    }
    if (connstatus) {
-      sorwakeup(head);
-      wakeup((caddr_t)&head->so_timeo);
+      // FIXME: callbacks
+      //sorwakeup(head);
+      //wakeup((caddr_t)&head->so_timeo);
       so->so_state |= connstatus;
    }
    return (so);
-*/
 }
 
 /*     

@@ -281,6 +281,11 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	NTOHL(ti->ti_ack);
 	NTOHS(ti->ti_win);
 	NTOHS(ti->ti_urp);
+   DEBUG("tcp dump, seq=%d, ack=%d, win=%d, urg=%d", 
+            ti->ti_seq,
+            ti->ti_ack,
+            ti->ti_win,
+            ti->ti_urp);
 
 	// Locate pcb for segment.
 findpcb:
@@ -303,18 +308,28 @@ findpcb:
 	// but should either do a listen or a connect soon.
 	if (inp == 0)
 		goto dropwithreset;
+
+   DEBUG("found inp cb, laddr=%x, lport=%d, faddr=%x, fport=%d",
+         inp->inp_laddr.s_addr,
+         inp->inp_lport,
+         inp->inp_faddr.s_addr,
+         inp->inp_fport);
+
 	tp = intotcpcb(inp);
+
 	if (tp == 0)
 		goto dropwithreset;
 	if (tp->t_state == TCPS_CLOSED)
 		goto drop;
 	
 	// Unscale the window into a 32-bit value. 
+   DEBUG("update window, tiflags=%x", tiflags);
 	if ((tiflags & TH_SYN) == 0)
 		tiwin = ti->ti_win << tp->snd_scale;
 	else
 		tiwin = ti->ti_win;
 
+   DEBUG("socket options, options=%x", so->so_options);
 	so = inp->inp_socket;
 	if (so->so_options & (SO_DEBUG|SO_ACCEPTCONN)) {
 		if (so->so_options & SO_DEBUG) {
@@ -461,7 +476,6 @@ findpcb:
 		}
 	}
 
-
 	// Drop TCP, IP headers and TCP options.
 	m->head += sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 	m->mlen  -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
@@ -519,9 +533,11 @@ findpcb:
 		sin->sin_addr = ti->ti_src;
 		sin->sin_port = ti->ti_sport;
 		bzero((caddr_t)sin->sin_zero, sizeof(sin->sin_zero));
+
 		laddr = inp->inp_laddr;
 		if (inp->inp_laddr.s_addr == USN_INADDR_ANY)
 			inp->inp_laddr = ti->ti_dst;
+
 		if (in_pcbconnect(inp, am)) {
 			inp->inp_laddr = laddr;
 			usn_free_mbuf(am);
@@ -1189,11 +1205,11 @@ dodata:							// XXX
 
 	// Return any desired output.
 	if (needoutput || (tp->t_flags & TF_ACKNOW))
-		(void) tcp_output(tp);
+		tcp_output(tp);
 	return;
 
 dropafterack:
-
+   DEBUG("dropafterack");
 	// Generate an ACK dropping incoming segment if it occupies
 	// sequence space, where the ACK reflects our state.
 	if (tiflags & TH_RST)
@@ -1204,7 +1220,7 @@ dropafterack:
 	return;
 
 dropwithreset:
-
+   DEBUG("dropwithreset");
 	// Generate a RST, dropping incoming segment.
 	// Make ACK acceptable to originator of segment.
 	// Don't bother to respond if destination was broadcast/multicast.
@@ -1226,7 +1242,7 @@ dropwithreset:
 	return;
 
 drop:
-
+   DEBUG("drop");
 	// Drop space held by incoming segment and return.
 	if (tp && (tp->t_inpcb->inp_socket->so_options & SO_DEBUG))
 		tcp_trace(TA_DROP, ostate, tp, &g_tcp_saveti, 0);

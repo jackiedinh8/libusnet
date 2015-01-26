@@ -60,16 +60,20 @@ struct tcpiphdr *
 tcp_template(struct tcpcb *tp)
 {
 	struct inpcb *inp = tp->t_inpcb;
-	usn_mbuf_t *m;
 	struct tcpiphdr *n;
 
 	if ((n = tp->t_template) == 0) {
       // TODO: alloc exact size!
-		m = usn_get_mbuf(0, BUF_MSIZE, 0);
-		if (m == NULL)
+	   //usn_mbuf_t *m;
+		//m = usn_get_mbuf(0, BUF_MSIZE, 0);
+		//if (m == NULL)
+		//	return (0);
+		//m->mlen = sizeof (struct tcpiphdr);
+		//n = mtod(m, struct tcpiphdr *);
+		n = (struct tcpiphdr*)usn_get_buf(0, sizeof(struct tcpiphdr));
+		if (n == NULL)
 			return (0);
-		m->mlen = sizeof (struct tcpiphdr);
-		n = mtod(m, struct tcpiphdr *);
+      memset(n, 0, sizeof(*n));
 	}
 	n->ti_next = n->ti_prev = 0;
 	n->ti_x1 = 0;
