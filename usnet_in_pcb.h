@@ -41,14 +41,6 @@
 #include "usnet_ip.h"
 #include "usnet_route.h"
 
-typedef struct usn_appcb usn_appcb_t;
-struct usn_appcb {
-   int                fd;
-   void              *arg;
-   accept_handler_cb  accept_cb; 
-   socket_handler_cb  socket_cb; 
-   error_handler_cb   error_cb; 
-};
 
 /*
  * Common structure pcb for internet protocol implementation.
@@ -72,7 +64,6 @@ struct inpcb {
 	usn_ip_t    inp_ip;		          /* header prototype; should have more */
 	usn_mbuf_t *inp_options;	       /* IP options */
 	//struct ip_moptions *inp_moptions; /* IP multicast options */
-   usn_appcb_t inp_appcb;                /* application specific settings */
 };
 
 /* flags in inp_flags: */

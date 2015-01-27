@@ -59,6 +59,16 @@ struct usn_selinfo {
  * handle on protocol and pointer to protocol
  * private data and error information.
  */
+
+typedef struct usn_appcb usn_appcb_t;
+struct usn_appcb {
+   int                fd;
+   void              *arg;
+   accept_handler_cb  accept_cb; 
+   socket_handler_cb  socket_cb; 
+   error_handler_cb   error_cb; 
+};
+
 struct usn_socket;
 typedef int (*pr_usrreq_func_t)(struct usn_socket*, int, usn_mbuf_t*, usn_mbuf_t*, usn_mbuf_t*);
 struct usn_socket {
@@ -72,6 +82,7 @@ struct usn_socket {
    caddr_t  so_pcb;        /* protocol control block */
    /* user-protocol hook */
    pr_usrreq_func_t so_usrreq;      /* user request: see list below */
+   usn_appcb_t so_appcb;                /* application specific settings */
 /*
  * Variables for connection queueing.
  * Socket where accepts occur is so_head in all subsidiary sockets.

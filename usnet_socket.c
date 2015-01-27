@@ -476,7 +476,8 @@ usnet_udpwakeup_socket(struct inpcb* inp)
         
    if ( so->so_options & SO_ACCEPTCONN ) {
       DEBUG("calling accept callback");
-      inp->inp_appcb.accept_cb(so->so_fd, &addr, 8/*len of sockadrr_in*/, inp->inp_appcb.arg);
+      so->so_appcb.accept_cb(so->so_fd, &addr, 
+            8/*len of sockadrr_in*/, so->so_appcb.arg);
    }
 
    if (opts)

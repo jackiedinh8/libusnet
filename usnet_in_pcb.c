@@ -107,13 +107,15 @@ in_pcballoc (struct usn_socket *so, struct inpcb *head)
 int 
 in_pcblisten(struct inpcb *inp, usn_mbuf_t *nam)
 {
+   struct usn_socket *so;
    struct usn_appcb  *cb;
 
    if ( nam == NULL )
       return -1;
 
    cb = mtod(nam, struct usn_appcb *);
-   inp->inp_appcb = *cb;
+   so = inp->inp_socket;
+   so->so_appcb = *cb;
    //inp->inp_flags |= INP_CONTROLOPTS|INP_RECVDSTADDR;
    return 0;
 }
