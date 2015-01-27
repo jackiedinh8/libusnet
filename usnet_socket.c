@@ -410,7 +410,7 @@ usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
       return -3;
    }
    
-   inp->inp_appcb.accept_cb(so->so_fd, 0, 0, inp->inp_appcb.arg);
+   //inp->inp_appcb.accept_cb(so->so_fd, 0, 0, inp->inp_appcb.arg);
 
    // XXX: clean mbuf if needed.
    return 0;
@@ -615,7 +615,7 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
 
    ip->ip_src.s_addr = pcb->inp_laddr.s_addr;
    ip->ip_dst.s_addr = addr->sin_addr.s_addr;
-   ip->ip_len = ntohs(m->mlen);
+   ip->ip_len = m->mlen;
 
    // FIXME: enqueue msg
    (void)so;
