@@ -373,7 +373,7 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
       goto bad;
    }
    // callbacks
-   usnet_wakeup_socket(inp);
+   usnet_udpwakeup_socket(inp);
 
    return;
 

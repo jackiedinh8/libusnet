@@ -161,6 +161,9 @@ tcp_usrreq(struct usn_socket *so, int req,
          error = in_pcbbind(inp, (usn_mbuf_t *)0);
       if (error == 0)
          tp->t_state = TCPS_LISTEN;
+      error = in_pcblisten(inp, nam);
+      if ( error < 0 )
+         DEBUG("binding error");
       break;
 
    /*

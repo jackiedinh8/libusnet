@@ -63,6 +63,7 @@ tcp_output(struct tcpcb *tp)
 	int idle, sendalot;
 	u_short mss;
 
+   DEBUG("tcp_output");
    //memset(opt, 0, MAX_TCPOPTLEN);
 	// Determine length of data that should be transmitted,
 	// and flags that will be used.
@@ -478,6 +479,8 @@ send:
 
 	//error = ipv4_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 	//    so->so_options & SO_DONTROUTE, 0);
+   DEBUG("call ipv4_output");
+   dump_buffer((char*)m->head,m->mlen, "tcp");
 	error = ipv4_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 	    so->so_options & SO_DONTROUTE);
 

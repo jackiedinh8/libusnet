@@ -56,7 +56,7 @@ tcp_fasttimo()
 	struct inpcb *inp;
 	struct tcpcb *tp;
 	//int s = splnet();
-
+   DEBUG("fasttimo");
 	inp = g_tcb.inp_next;
 	if (inp) {
 	   for (; inp != &g_tcb; inp = inp->inp_next)
@@ -65,7 +65,7 @@ tcp_fasttimo()
 	   		tp->t_flags &= ~TF_DELACK;
 	   		tp->t_flags |= TF_ACKNOW;
 	   		g_tcpstat.tcps_delack++;
-	   		(void) tcp_output(tp);
+	   		tcp_output(tp);
 	   	}
    }
 	//splx(s);
@@ -85,6 +85,7 @@ tcp_slowtimo()
 	//int s = splnet();
 	u_long i;
 
+   DEBUG("slowtimo");
 	//tcp_maxidle = tcp_keepcnt * tcp_keepintvl;
 	/*
 	 * Search through tcb's and update active timers.
@@ -102,7 +103,7 @@ tcp_slowtimo()
 			continue;
 		for (i = 0; i < TCPT_NTIMERS; i++) {
 			if (tp->t_timer[i] && --tp->t_timer[i] == 0) {
-				(void) tcp_usrreq(tp->t_inpcb->inp_socket,
+				tcp_usrreq(tp->t_inpcb->inp_socket,
 				    PRU_SLOWTIMO, (usn_mbuf_t *)0,
 				    (usn_mbuf_t *)i, (usn_mbuf_t *)0);
 				if (ipnxt->inp_prev != ip)

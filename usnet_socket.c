@@ -379,7 +379,45 @@ sbappendaddr( struct sockbuf *sb, struct usn_sockaddr *asa,
 }
 
 int32
-usnet_wakeup_socket(struct inpcb* inp)
+usnet_tcpaccept_socket(struct usn_socket *so, struct sockbuf *sb)
+{
+   DEBUG("accept a socket: not implemented yet");
+   return 0;
+}
+
+int32
+usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
+{
+   struct inpcb *inp = 0;
+   DEBUG("handling tcp data: not implemented yet");
+
+   if (so == NULL || sb == NULL ) {
+      DEBUG("panic: null pointer");
+      return -1;
+   }
+
+   if ( sb->sb_mb == NULL ) {
+      DEBUG("panic: empty buffer");
+      return -2;
+   }
+
+   dump_buffer((char*)sb->sb_mb->head, sb->sb_mb->mlen,"app");
+
+   inp = (struct inpcb*)so->so_pcb;
+
+   if ( inp == NULL ) {
+      DEBUG("panic: null ip control block");
+      return -3;
+   }
+   
+   inp->inp_appcb.accept_cb(so->so_fd, 0, 0, inp->inp_appcb.arg);
+
+   // XXX: clean mbuf if needed.
+   return 0;
+}
+
+int32
+usnet_udpwakeup_socket(struct inpcb* inp)
 {
    struct usn_socket *so;
    struct sockbuf* sb;

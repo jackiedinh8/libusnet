@@ -44,6 +44,8 @@
 #include "usnet_udp.h"
 #include "usnet_tcp.h"
 #include "usnet_slab.h"
+#include "usnet_tcp_var.h"
+#include "usnet_tcp_timer.h"
 
 struct nm_desc *g_nmd;
 #ifdef TIME_NANO
@@ -679,6 +681,12 @@ usnet_dispatch()
    fds.fd = g_nmd->fd;
 
    while(!do_abort) {
+
+#ifdef TIME_NANO
+       clock_gettime(CLOCK_REALTIME, &g_time);
+#else
+       gettimeofday(&g_time,0);
+#endif
        //fds.events = POLLIN | POLLOUT;
        fds.events = POLLIN;
        fds.revents = 0;
@@ -739,6 +747,8 @@ usnet_dispatch()
              receive_packets(rxring, 512, 1);
           }
        }
+       //tcp_fasttimo();
+       tcp_slowtimo();
    }
    nm_close(g_nmd);
    return;

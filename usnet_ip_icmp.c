@@ -580,6 +580,7 @@ icmp_output(usn_mbuf_t *m, usn_mbuf_t *opts)
 	if (icmpprintfs)
 		DEBUG("icmp_send dst %x src %x\n", ip->ip_dst.s_addr, ip->ip_src.s_addr);
 #endif
+   ip->ip_len = ntohs(ip->ip_len);
 	ipv4_output(m, opts, NULL, 0);
 }
 

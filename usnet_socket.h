@@ -59,8 +59,15 @@ int32
 usnet_listen_socket(u_int32 fd, int32 flags, accept_handler_cb accept_cb, error_handler_cb error_cb, void* arg);
 
 struct inpcb;
+
 int32
-usnet_wakeup_socket(struct inpcb* pcb);
+usnet_tcpaccept_socket(struct usn_socket *so, struct sockbuf *sb);
+
+int32
+usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb);
+
+int32
+usnet_udpwakeup_socket(struct inpcb* pcb);
 
 // @return: 
 //   >= 0: length of available buffer.

@@ -77,7 +77,7 @@ struct	inpcb *g_tcp_last_inpcb = &g_tcb;
 		g_tcpstat.tcps_rcvpack++;\
 		g_tcpstat.tcps_rcvbyte += (ti)->ti_len;\
 		sbappend(&(so)->so_rcv, (m)); \
-		/*FIXME: callbacks;*/ /*sorwakeup(so);*/ \
+		sorwakeup(so); \
 	} else { \
 		(flags) = tcp_reass((tp), (ti), (m)); \
 		tp->t_flags |= TF_ACKNOW; \
@@ -281,7 +281,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	NTOHL(ti->ti_ack);
 	NTOHS(ti->ti_win);
 	NTOHS(ti->ti_urp);
-   DEBUG("tcp dump, seq=%d, ack=%d, win=%d, urg=%d", 
+   DEBUG("tcp dump, seq=%u, ack=%u, win=%u, urg=%u", 
             ti->ti_seq,
             ti->ti_ack,
             ti->ti_win,
@@ -798,7 +798,7 @@ trimthenstep6:
 		tp->ts_recent = ts_val;
 	}
 */
-   // XXX: check valid timestamp. Replave code above.
+   // XXX: check valid timestamp. Replace code above.
    if (ts_present && TSTMP_GEQ(ts_val, tp->ts_recent) &&
          SEQ_LEQ(ti->ti_seq, tp->last_ack_sent) ) {
 		tp->ts_recent_age = g_tcp_now;
@@ -1137,6 +1137,9 @@ step6:
 		if (SEQ_GT(tp->rcv_nxt, tp->rcv_up))
 			tp->rcv_up = tp->rcv_nxt;
 dodata:							// XXX
+   DEBUG("Handle data");
+   dump_buffer((char*)m->head, m->mlen,"tcp");
+
 	// Process the segment text, merging it into the TCP sequencing queue,
 	// and arranging for acknowledgment of receipt if necessary.
 	// This process logically involves adjusting tp->rcv_wnd as data

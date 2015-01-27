@@ -281,7 +281,13 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
    bcopy((caddr_t)&type,(caddr_t)&eh->ether_type, sizeof(eh->ether_type));
    bcopy((caddr_t)edst, (caddr_t)eh->ether_dhost, sizeof (edst));
    bcopy((caddr_t)&g_ether_addr, (caddr_t)eh->ether_shost, sizeof(eh->ether_shost));
-   
+
+ #ifdef DUMP_PAYLOAD
+   DEBUG("eth_output: prepend eth header, ptr=%p, len=%d, type=%d", 
+         m->head, m->mlen, type);
+   dump_buffer((char*)m->head, m->mlen, "frm");
+#endif
+  
    /*
     * Queue message on interface, and start output if interface
     * not yet active.

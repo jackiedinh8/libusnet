@@ -83,15 +83,15 @@ struct usn_socket {
  * We allow connections to queue up based on current queue lengths
  * and limit on number of queued connections for this socket.
  */
-   struct   usn_socket *so_head;  /* back pointer to accept socket */
-   struct   usn_socket *so_q0;    /* queue of partial connections */
-   struct   usn_socket *so_q;     /* queue of incoming connections */
+   struct   usn_socket *so_head;   /* back pointer to accept socket */
+   struct   usn_socket *so_q0;     /* queue of partial connections */
+   struct   usn_socket *so_q;      /* queue of incoming connections */
    short            so_q0len;      /* partials on so_q0 */
-   short            so_qlen;    /* number of connections on so_q */
+   short            so_qlen;       /* number of connections on so_q */
    short            so_qlimit;     /* max number queued connections */
    short            so_timeo;      /* connection timeout */
    u_short          so_error;      /* error affecting connection */
-   int              so_pgid;    /* pgid for signals */
+   int              so_pgid;       /* pgid for signals */
    u_int            so_oobmark;    /* chars to oob mark */
 /*
  * Variables for socket buffering.
@@ -102,17 +102,17 @@ struct usn_socket {
       u_int          sb_mbcnt;   /* chars of mbufs used */
       u_int          sb_mbmax;   /* max chars of mbufs to use */
       int            sb_lowat;   /* low water mark */
-      usn_mbuf_t     *sb_mb;   /* the mbuf chain */
-      struct usn_selinfo sb_sel;   /* process selecting read/write */
+      usn_mbuf_t     *sb_mb;     /* the mbuf chain */
+      struct usn_selinfo sb_sel; /* process selecting read/write */
       short          sb_flags;   /* flags, see below */
       short          sb_timeo;   /* timeout for read/write */
    } so_rcv, so_snd;
 #define  SB_MAX      (256*1024)  /* default for max chars in sockbuf */
-#define  SB_LOCK     0x01     /* lock on data queue */
-#define  SB_WANT     0x02     /* someone is waiting to lock */
-#define  SB_WAIT     0x04     /* someone is waiting for data/space */
-#define  SB_SEL      0x08     /* someone is selecting */
-#define  SB_ASYNC 0x10     /* ASYNC I/O, need signals */
+#define  SB_LOCK     0x01        /* lock on data queue */
+#define  SB_WANT     0x02        /* someone is waiting to lock */
+#define  SB_WAIT     0x04        /* someone is waiting for data/space */
+#define  SB_SEL      0x08        /* someone is selecting */
+#define  SB_ASYNC 0x10           /* ASYNC I/O, need signals */
 #define  SB_NOTIFY   (SB_WAIT|SB_SEL|SB_ASYNC)
 #define  SB_NOINTR   0x40     /* operations not interruptible */
 

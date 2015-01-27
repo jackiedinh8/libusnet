@@ -222,6 +222,7 @@ sonewconn1(struct usn_socket *head, int connstatus)
       //wakeup((caddr_t)&head->so_timeo);
       so->so_state |= connstatus;
    }
+   DEBUG("new connect has been created");
    return (so);
 }
 
@@ -286,6 +287,8 @@ sbdrop(struct sockbuf *sb, int len)
 void
 sowakeup(struct usn_socket *so, struct sockbuf *sb)
 {
+   DEBUG("waking up a process");
+   usnet_tcpwakeup_socket(so, sb);
    return;
 /*
    struct proc *p;
@@ -419,17 +422,17 @@ soabort( struct usn_socket *so)
 void    
 sbappend(struct sockbuf *sb, usn_mbuf_t *m)
 {
+   sb->sb_mb = m;
    return;
-   //FIXME
 /*
    usn_mbuf_t *n;
    if (m == 0)
       return;
    if (n = sb->sb_mb) {
-      while (n->m_nextpkt)
-         n = n->m_nextpkt;
+      while (n->queue)
+         n = n->queue;
          do {
-            if (n->m_flags & M_EOR) {
+            if (n->flags & BUF_EOR) {
                sbappendrecord(sb, m); // XXXXXX!!!!
                return;
             }

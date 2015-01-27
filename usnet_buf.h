@@ -60,6 +60,7 @@ struct usn_mbuf {          // The first two fields are overlaid by usn_buf_t.
 #define	BUF_MCAST 	             0x0200	/* send/received as link-level multicast */
 #define	BUF_RAW  	             0x0400	/* raw packet */
 #define	BUF_ZERO_COPY            0x1000	
+#define	BUF_EOR                  0x2000	
 }__attribute__((packed)); // XXX: check performance or need to padding
 
 // this buffer overlays struct usn_mbuf above for application usage.

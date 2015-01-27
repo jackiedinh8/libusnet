@@ -130,5 +130,10 @@ extern int g_tcp_maxidle;			/* time to drop after starting probes */
 extern int g_tcp_ttl;			/* time to live for TCP segs */
 extern int g_tcp_backoff[];
 
+void
+tcp_fasttimo();
+
+void
+tcp_slowtimo();
 
 #endif //USNET_TCP_TIMER_H_

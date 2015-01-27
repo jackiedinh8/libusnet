@@ -42,6 +42,7 @@ usnet_tcp_init()
    //g_max_hdr = 0;
    //g_max_datalen = 0;         /* MHLEN - max_hdr */
 
+   g_tcp_now = 0;
 
 }
 
