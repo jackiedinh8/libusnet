@@ -346,7 +346,6 @@ findpcb:
 				}
 				goto drop;
 			}
-         // FIXME
 			so = sonewconn(so, 0);
 			if (so == 0)
 				goto drop;
@@ -445,9 +444,10 @@ findpcb:
 				else if (tp->t_timer[TCPT_PERSIST] == 0)
 					tp->t_timer[TCPT_REXMT] = tp->t_rxtcur;
 
-				if (so->so_snd.sb_flags & SB_NOTIFY)
-               // FIXME
+				if (so->so_snd.sb_flags & SB_NOTIFY) {
+               DEBUG("FIXME: sowwakeup notify");
 					sowwakeup(so);
+            }
 				if (so->so_snd.sb_cc)
 					tcp_output(tp);
 				return;
@@ -469,7 +469,7 @@ findpcb:
 			m->head += sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 			m->mlen -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 			sbappend(&so->so_rcv, m);
-         // FIXME
+         DEBUG("FIXME:sorwakeup add data to buf");
 			sorwakeup(so);
 			tp->t_flags |= TF_DELACK;
 			return;
@@ -1001,8 +1001,10 @@ close:
 			tp->snd_wnd -= acked;
 			ourfinisacked = 0;
 		}
-		if (so->so_snd.sb_flags & SB_NOTIFY)
+		if (so->so_snd.sb_flags & SB_NOTIFY) {
+         DEBUG("FIXME: sowwakeup notify 2");
 			sowwakeup(so);
+      }
 
 		tp->snd_una = ti->ti_ack;
 		if (SEQ_LT(tp->snd_nxt, tp->snd_una))
@@ -1148,6 +1150,7 @@ dodata:							// XXX
 	// connection then we just ignore the text.
 	if ((ti->ti_len || (tiflags&TH_FIN)) &&
 	    TCPS_HAVERCVDFIN(tp->t_state) == 0) {
+      DEBUG("tp->t_state=%hu", tp->t_state);
 		TCP_REASS(tp, ti, m, so, tiflags);
 		// Note the amount of data that peer has sent into
 		// our window, in order to estimate the sender's

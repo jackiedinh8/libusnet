@@ -66,9 +66,7 @@
  */
 extern u_char	g_tcp_outflags[TCP_NSTATES];
 
-#ifdef KPROF
-int	tcp_acounts[TCP_NSTATES][PRU_NREQ];
-#endif
+//int g_tcp_acounts[TCP_NSTATES][PRU_NREQ];
 
 #ifdef	TCPSTATES
 char *tcpstates[] = {

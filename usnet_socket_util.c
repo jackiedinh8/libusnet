@@ -205,6 +205,7 @@ sonewconn1(struct usn_socket *head, int connstatus)
    so->so_timeo = head->so_timeo;
    so->so_pgid = head->so_pgid;
    so->so_usrreq = head->so_usrreq;
+   so->so_appcb = head->so_appcb;
 
    soreserve(so, head->so_snd.sb_hiwat, head->so_rcv.sb_hiwat);
 

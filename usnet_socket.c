@@ -388,29 +388,37 @@ usnet_tcpaccept_socket(struct usn_socket *so, struct sockbuf *sb)
 int32
 usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
 {
+   struct tcpcb *tp = 0;
    struct inpcb *inp = 0;
-   DEBUG("handling tcp data: not implemented yet");
+   DEBUG("handling tcp callbacks");
 
    if (so == NULL || sb == NULL ) {
       DEBUG("panic: null pointer");
       return -1;
    }
 
+   inp = (struct inpcb*)so->so_pcb;
+   if ( inp == NULL ) {
+      DEBUG("panic: null ip control block");
+      return -2;
+   }
+   tp = (struct tcpcb*)inp->inp_ppcb;
+
+   if ( tp == NULL ) {
+      DEBUG("panic: empty tcp control block");
+      return -3;
+   }
+
+   DEBUG("tcp info, tp_state=%hu, so_state=%hu", tp->t_state, so->so_state);
+
    if ( sb->sb_mb == NULL ) {
       DEBUG("panic: empty buffer");
-      return -2;
+      return -4;
    }
 
    dump_buffer((char*)sb->sb_mb->head, sb->sb_mb->mlen,"app");
 
-   inp = (struct inpcb*)so->so_pcb;
-
-   if ( inp == NULL ) {
-      DEBUG("panic: null ip control block");
-      return -3;
-   }
-   
-   //inp->inp_appcb.accept_cb(so->so_fd, 0, 0, inp->inp_appcb.arg);
+   //so->so_appcb.accept_cb(so->so_fd, 0, 0, so->so_appcb.arg);
 
    // XXX: clean mbuf if needed.
    return 0;
@@ -621,7 +629,9 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
    // FIXME: enqueue msg
    (void)so;
    // FIXME: wakeup process
-
+   
+   // FIXME: should not call ipv4_output directly,
+   //        calling udp_output and tcp_output instead.
    ret = ipv4_output(m, 0, 0, IP_ROUTETOIF);
 
    return ret;
