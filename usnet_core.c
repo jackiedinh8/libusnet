@@ -826,7 +826,13 @@ usnet_udp_broadcast(u_int32 fd, u_char* buff, u_int32 len,
    return 0;
 }
 
-
-
+int32
+usnet_set_callbacks(u_int32 fd, 
+                    read_handler_cb read_cb, 
+                    write_handler_cb write_cb, 
+                    error_handler_cb error_cb)
+{
+   return 0;
+}
 
 

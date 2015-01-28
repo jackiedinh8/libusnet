@@ -110,6 +110,8 @@ usnet_dispatch();
 struct usn_sockaddr;
 struct usn_sockaddr_in;
 typedef void (*socket_handler_cb)(u_int32 fd, u_short flags, void* arg);
+typedef void (*read_handler_cb)(u_int32 fd, u_short flags, void* arg);
+typedef void (*write_handler_cb)(u_int32 fd, u_short flags, void* arg);
 typedef void (*accept_handler_cb)(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg);
 typedef void (*error_handler_cb)(int32 error, void* arg);
 
@@ -158,6 +160,9 @@ usnet_drain(int fd, size_t len);
 
 int32
 usnet_udp_broadcast(u_int32 fd, u_char* buff, u_int32 len, struct usn_sockaddr_in* addrs, u_int32 addr_num);
+
+int32
+usnet_set_callbacks(u_int32 fd, read_handler_cb read_cb, write_handler_cb write_cb, error_handler_cb error_cb);
 
 // eth functionality
 int32 

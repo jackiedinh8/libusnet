@@ -62,10 +62,12 @@ struct usn_selinfo {
 
 typedef struct usn_appcb usn_appcb_t;
 struct usn_appcb {
-   int                fd;
+   u_int32            fd;
    void              *arg;
    accept_handler_cb  accept_cb; 
    socket_handler_cb  socket_cb; 
+   read_handler_cb    read_cb; 
+   write_handler_cb   write_cb; 
    error_handler_cb   error_cb; 
 };
 

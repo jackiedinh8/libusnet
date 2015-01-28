@@ -50,13 +50,16 @@ void
 usnet_socket_init();
 
 int32
-usnet_create_socket(u_int32 dom, struct usn_socket **aso, u_int32 type, u_int32 proto);
+usnet_create_socket(u_int32 dom, struct usn_socket **aso, 
+      u_int32 type, u_int32 proto);
 
 int32
 usnet_bind_socket(u_int32 fd, u_int32 addr, u_short port);
 
 int32
-usnet_listen_socket(u_int32 fd, int32 flags, accept_handler_cb accept_cb, error_handler_cb error_cb, void* arg);
+usnet_listen_socket(u_int32 fd, int32 flags, 
+      accept_handler_cb accept_cb, 
+      error_handler_cb error_cb, void* arg);
 
 struct inpcb;
 
@@ -83,11 +86,17 @@ int32
 usnet_write_sobuffer(u_int32 fd, usn_buf_t *buf);
 
 int32
-usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr);
+usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, 
+      struct usn_sockaddr_in *addr);
 
 int32
 usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len, 
        struct usn_sockaddr_in* addrs, u_int32 addr_num);
 
+int32
+usnet_set_socketcb(u_int32 fd, int32 flags, 
+      read_handler_cb read_cb, 
+      write_handler_cb write_cb, 
+      error_handler_cb error_cb, void* arg);
 
 #endif /* USNET_SOCKET_H_ */

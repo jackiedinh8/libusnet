@@ -11,9 +11,8 @@
 #include "usnet_socket.h"
 #include "usnet_in.h"
 
-void read_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
+void read_handler(u_int32 fd, u_short flags, void* arg)
 {
-   struct usn_sockaddr_in *inaddr = (struct usn_sockaddr_in *)addr;
    /* 
    usn_buf_t *buf = NULL;
    buf = usnet_get_buffer(fd); 
@@ -25,16 +24,15 @@ void read_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
    usnet_writeto_buffer(fd, buf, inaddr);
    */
 
-   DEBUG("new data, fd=%d, addr_len=%d, ip=%x, port=%d, ip_=%x", 
-            fd, len, inaddr->sin_addr.s_addr, inaddr->sin_port, inet_addr("10.10.10.1"));
+   DEBUG("new data, fd=%d", fd);
 
    return;
 }
 
 void accept_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
 {
-   struct usn_sockaddr_in *inaddr = (struct usn_sockaddr_in *)addr;
    /* 
+   struct usn_sockaddr_in *inaddr = (struct usn_sockaddr_in *)addr;
    usn_buf_t *buf = NULL;
    buf = usnet_get_buffer(fd); 
    if ( buf == NULL ) {
@@ -45,8 +43,11 @@ void accept_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
    usnet_writeto_buffer(fd, buf, inaddr);
    */
 
-   DEBUG("new connection, fd=%d, addr_len=%d, ip=%x, port=%d, ip_=%x", 
-            fd, len, inaddr->sin_addr.s_addr, inaddr->sin_port, inet_addr("10.10.10.1"));
+   DEBUG("new connection, fd=%d", fd);
+   usnet_set_socketcb(fd, 0, read_handler, 0, 0, 0);
+
+   //DEBUG("new connection, fd=%d, addr_len=%d, ip=%x, port=%d, ip_=%x", 
+   //         fd, len, inaddr->sin_addr.s_addr, inaddr->sin_port, inet_addr("10.10.10.1"));
    return;
 }
 

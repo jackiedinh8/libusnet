@@ -309,13 +309,13 @@ findpcb:
 	if (inp == 0)
 		goto dropwithreset;
 
-   DEBUG("found inp cb, laddr=%x, lport=%d, faddr=%x, fport=%d",
+	tp = intotcpcb(inp);
+
+   DEBUG("found inp cb, laddr=%x, lport=%d, faddr=%x, fport=%d, tp_state=%d",
          inp->inp_laddr.s_addr,
          inp->inp_lport,
          inp->inp_faddr.s_addr,
-         inp->inp_fport);
-
-	tp = intotcpcb(inp);
+         inp->inp_fport, tp->t_state);
 
 	if (tp == 0)
 		goto dropwithreset;

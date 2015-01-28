@@ -321,6 +321,29 @@ usnet_listen_socket(u_int32 fd, int32 flags, accept_handler_cb accept_cb, error_
    return 0;
 }
 
+
+
+int32
+usnet_set_socketcb(u_int32 fd, int32 flags, 
+      read_handler_cb read_cb, 
+      write_handler_cb write_cb, 
+      error_handler_cb error_cb, void* arg)
+{
+   struct usn_socket      *so = usnet_get_socket(fd);
+
+   if ( so == NULL ) {
+      DEBUG("panic: socket is null");
+      return -1;
+   }
+
+   so->so_appcb.read_cb = read_cb;
+   so->so_appcb.write_cb = write_cb;
+   so->so_appcb.error_cb = error_cb;
+   so->so_appcb.arg = arg;
+
+   return 0;
+}
+
 /*
  * Append address and data, and optionally, control (ancillary) data
  * to the receive queue of a socket.  If present,
@@ -411,14 +434,22 @@ usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
 
    DEBUG("tcp info, tp_state=%hu, so_state=%hu", tp->t_state, so->so_state);
 
-   if ( sb->sb_mb == NULL ) {
-      DEBUG("panic: empty buffer");
-      return -4;
+   if ( so->so_appcb.accept_cb && so->so_state & USN_ISCONNECTED) {
+      // call it once.
+      DEBUG("accept callback");
+      so->so_appcb.accept_cb(so->so_fd, 0, 0, so->so_appcb.arg);
+      so->so_appcb.accept_cb = 0;
+   } else if ( so->so_state & USN_ISCONNECTED ) {
+      DEBUG("read-handler callback");
+      if ( sb->sb_mb == NULL ) {
+         DEBUG("panic: empty buffer");
+         return -4;
+      }
+      dump_buffer((char*)sb->sb_mb->head, sb->sb_mb->mlen,"app");
    }
 
-   dump_buffer((char*)sb->sb_mb->head, sb->sb_mb->mlen,"app");
 
-   //so->so_appcb.accept_cb(so->so_fd, 0, 0, so->so_appcb.arg);
+
 
    // XXX: clean mbuf if needed.
    return 0;

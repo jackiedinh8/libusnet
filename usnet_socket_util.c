@@ -185,7 +185,8 @@ struct usn_socket*
 sonewconn1(struct usn_socket *head, int connstatus)
 {
    struct usn_socket *so;
-   int soqueue = connstatus ? 1 : 0;
+   int    soqueue = connstatus ? 1 : 0;
+   int    i;
 
    if (head->so_qlen + head->so_q0len > 3 * head->so_qlimit / 2)
       return ((struct usn_socket *)0);
@@ -196,10 +197,11 @@ sonewconn1(struct usn_socket *head, int connstatus)
       return ((struct usn_socket *)0);
 
    bzero((caddr_t)so, sizeof(*so));
+   so->so_domain = head->so_domain;
    so->so_type = head->so_type;
    so->so_options = head->so_options &~ SO_ACCEPTCONN;
    so->so_linger = head->so_linger;
-   so->so_state = head->so_state | USN_NOFDREF;
+   so->so_state = head->so_state | USN_NOFDREF; // no fd yet
    // FIXME: do we need?
    //so->so_proto = head->so_proto;
    so->so_timeo = head->so_timeo;
@@ -223,7 +225,19 @@ sonewconn1(struct usn_socket *head, int connstatus)
       //wakeup((caddr_t)&head->so_timeo);
       so->so_state |= connstatus;
    }
+
    DEBUG("new connect has been created");
+   for ( i=1; i<MAX_SOCKETS; i++) {
+      if ( g_fds[i] == 0 ) break;
+   }
+   if ( i >= MAX_SOCKETS ) {
+      DEBUG("ERROR: fd not available");
+      return 0;
+   }
+   g_fds[i] = so;
+   so->so_fd = i;
+   so->so_state = head->so_state & ~USN_NOFDREF;
+
    return (so);
 }
 
