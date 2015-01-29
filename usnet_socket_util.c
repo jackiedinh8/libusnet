@@ -492,7 +492,7 @@ void
 sbappend(struct sockbuf *sb, usn_mbuf_t *m)
 {
    sb->sb_mb = m;
-   sb->sb_cc = m->mlen;
+   sb->sb_cc += m->mlen;
    return;
 /*
    usn_mbuf_t *n;

@@ -20,8 +20,9 @@ struct llinfo_arp g_llinfo_arp;
 int	arp_inuse, arp_allocated, arp_intimer;
 int	useloopback = 0;	/* use loopback interface for local traffic */
 
-void insque(struct llinfo_arp *la, struct llinfo_arp *head) 
+void arpinsque(struct llinfo_arp *la, struct llinfo_arp *head) 
 {
+   // TODO: better data structure, instead of linked lists.
    struct llinfo_arp *p;
    if ( head == NULL || la == NULL)
       return;
@@ -31,9 +32,25 @@ void insque(struct llinfo_arp *la, struct llinfo_arp *head)
    la->la_prev = head;
 }
 
-void remque() 
+void arpremque(struct llinfo_arp *la, struct llinfo_arp *head) 
 {
-   //FIXME:
+   //travel the arp list to remove an item.
+   struct llinfo_arp *p, *next, *prev;
+   if ( head == NULL || la == NULL)
+      return;
+
+   prev = head;
+   p = head->la_next;
+   while (p) {
+      if ( p != la ) {
+         prev = p;
+         p = p->la_next;
+      }
+      next = p->la_next;
+      prev->la_next = p->la_next;
+      next->la_prev = prev;
+      usn_free_buf((u_char*)p);
+   }
 }
 
 void arpinit()
@@ -372,7 +389,7 @@ arp_rtrequest(int req, struct rtentry *rt, struct usn_sockaddr *sa)
 		Bzero(la, sizeof(*la));
 		la->la_rt = rt;
 		rt->rt_flags |= RTF_LLINFO;
-		insque(la, &g_llinfo_arp);
+		arpinsque(la, &g_llinfo_arp);
 		if (SIN(rt_key(rt))->sin_addr.s_addr ==
 		    (IA_SIN(rt->rt_ifa))->sin_addr.s_addr) {
 		    /*
@@ -397,13 +414,12 @@ arp_rtrequest(int req, struct rtentry *rt, struct usn_sockaddr *sa)
 		if (la == 0)
 			break;
 		arp_inuse--;
-      // FIXME
-		//remque(la);
+		arpremque(la, &g_llinfo_arp);
 		rt->rt_llinfo = 0;
 		rt->rt_flags &= ~RTF_LLINFO;
 		if (la->la_hold)
 			usn_free_mbuf(la->la_hold);
-		Free((caddr_t)la);
+		usn_free_buf((u_char*)la);
 	}
 }
 

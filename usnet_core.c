@@ -706,6 +706,7 @@ usnet_dispatch()
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->head,
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->cur,
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->tail);
+          tcp_slowtimo();
           continue;
        }
        if (fds.revents & POLLERR) {
@@ -784,9 +785,7 @@ usnet_listen(u_int32 fd, int32 flags,
              error_handler_cb error_cb, void* arg)
 {
    DEBUG("listen on socket, fd=%d", fd);
-
    usnet_listen_socket(fd, flags, accept_cb, error_cb, arg);
-
    return 0;
 }
 
