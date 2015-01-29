@@ -377,9 +377,11 @@ soisconnected(struct usn_socket *so)
    so->so_state &= ~(USN_ISCONNECTING|USN_ISDISCONNECTING|USN_ISCONFIRMING);
    so->so_state |= USN_ISCONNECTED;
    if (head && soqremque(so, 0)) {
+      DEBUG("tcp connection is established");
       soqinsque(head, so, 1);
-      sorwakeup(head);
+      sorwakeup(so);
       // FIXME: implement it.
+      //sorwakeup(head);
       //wakeup((caddr_t)&head->so_timeo);
    } else {
       // FIXME: implement it.

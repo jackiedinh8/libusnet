@@ -434,7 +434,7 @@ usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
 
    DEBUG("tcp info, tp_state=%hu, so_state=%hu", tp->t_state, so->so_state);
 
-   if ( so->so_appcb.accept_cb && so->so_state & USN_ISCONNECTED) {
+   if ( so->so_appcb.accept_cb ) {
       // call it once.
       DEBUG("accept callback");
       so->so_appcb.accept_cb(so->so_fd, 0, 0, so->so_appcb.arg);
