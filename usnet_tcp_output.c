@@ -54,7 +54,7 @@ int
 tcp_output(struct tcpcb *tp)
 {
 	struct usn_socket *so = tp->t_inpcb->inp_socket;
-	long len, win;
+	int len, win;
 	int off, flags, error;
 	usn_mbuf_t *m;
 	struct tcpiphdr *ti;
@@ -314,6 +314,7 @@ send:
 		m->head += g_max_linkhdr + hdrlen;
 		m->mlen -= g_max_linkhdr + hdrlen;
       // TODO: two cases below are really different?
+      DEBUG("tcp copying data, len=%d, mlen=%d", len, m->mlen);
 		if (len <= m->mlen) {
 			usn_copy_mbuf(so->so_snd.sb_mb, off, len, mtod(m, caddr_t));
 			m->mlen = len;

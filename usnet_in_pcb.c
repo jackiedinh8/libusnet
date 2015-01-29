@@ -487,7 +487,7 @@ in_setpeeraddr (struct inpcb *inp, usn_mbuf_t *nam)
 {
    struct usn_sockaddr_in *sin;
    
-   nam->mlen = sizeof (*sin);
+   nam->mlen = sizeof(*sin);
    sin = mtod(nam, struct usn_sockaddr_in *); 
    bzero((caddr_t)sin, sizeof (*sin));
    sin->sin_family = AF_INET;

@@ -429,6 +429,58 @@ soabort( struct usn_socket *so)
 */
 }
 
+/*
+ * Compress mbuf chain m into the socket
+ * buffer sb following mbuf n.  If n
+ * is null, the buffer is presumed empty.
+ */
+void
+sbcompress(struct sockbuf *sb, usn_mbuf_t *m, usn_mbuf_t *n) 
+{
+   int eor = 0;
+   struct mbuf *o; 
+
+   (void) o;
+
+   while (m) {
+      eor |= m->flags & BUF_EOR;
+      if (m->mlen == 0 
+          // FIXME: review it. 
+          //&& (eor == 0 ||
+          // (((o = m->next) || (o = n)) ))
+      ) {
+         usn_free_mbuf(m);
+         m = NULL;
+         continue;
+      }   
+      if (n && (n->flags & BUF_EOR) == 0
+          // && (n->head + n->mlen + m->mlen) < &n->m_dat[MLEN]
+          ) {
+         bcopy(mtod(m, caddr_t), mtod(n, caddr_t) + n->mlen,
+             (unsigned)m->mlen);
+         n->mlen += m->mlen;
+         sb->sb_cc += m->mlen;
+         usn_free_mbuf(m);
+         m = NULL;
+         continue;
+      }   
+      if (n) 
+         n->next = m;
+      else
+         sb->sb_mb = m;
+      sballoc(sb, m);
+      n = m;
+      m->flags &= ~BUF_EOR;
+      m = m->next;
+      n->next = 0;
+   }  
+   if (eor) {
+      if (n)
+         n->flags |= eor;
+      else
+         DEBUG("semi-panic: sbcompress\n");
+   }     
+}  
 
 /*
  * Append mbuf chain m to the last record in the
@@ -440,6 +492,7 @@ void
 sbappend(struct sockbuf *sb, usn_mbuf_t *m)
 {
    sb->sb_mb = m;
+   sb->sb_cc = m->mlen;
    return;
 /*
    usn_mbuf_t *n;

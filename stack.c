@@ -13,18 +13,14 @@
 
 void read_handler(u_int32 fd, u_short flags, void* arg)
 {
-   /* 
    usn_buf_t *buf = NULL;
    buf = usnet_get_buffer(fd); 
    if ( buf == NULL ) {
       DEBUG("reading error");
       return;
    }
-   DEBUG("process data: len=%d \n", buf->len);
-   usnet_writeto_buffer(fd, buf, inaddr);
-   */
-
-   DEBUG("new data, fd=%d", fd);
+   DEBUG("process data: fd=%d, len=%d \n", fd, buf->len);
+   usnet_writeto_buffer(fd, buf, 0);
 
    return;
 }

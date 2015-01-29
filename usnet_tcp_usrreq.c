@@ -67,7 +67,7 @@ tcp_usrreq(struct usn_socket *so, int req,
    int error = 0;
    int ostate;
 
-   DEBUG("tcp user request");
+   DEBUG("tcp user request, req=%d", req);
    // FIXME: do we need?
    //if (req == PRU_CONTROL)
    //   return (in_control(so, (u_long)m, (caddr_t)nam,
@@ -81,42 +81,28 @@ tcp_usrreq(struct usn_socket *so, int req,
 
    //s = splnet();
    inp = sotoinpcb(so);
-   /*
-    * When a TCP is attached to a socket, then there will be
-    * a (struct inpcb) pointed at by the socket, and this
-    * structure will point at a subsidary (struct tcpcb).
-    */
+
+   // When a TCP is attached to a socket, then there will be
+   // a (struct inpcb) pointed at by the socket, and this
+   // structure will point at a subsidary (struct tcpcb).
    if (inp == 0 && req != PRU_ATTACH) {
-      //splx(s);
-#if 0
-      /*
-       * The following corrects an mbuf leak under rare
-       * circumstances, but has not been fully tested.
-       */
-      if (m && req != PRU_SENSE)
-         usn_free_mbuf(m);
-#else
-      /* safer version of fix for mbuf leak */
       if (m && (req == PRU_SEND || req == PRU_SENDOOB))
          usn_free_mbuf(m);
-#endif
       return (EINVAL);     /* XXX */
    }
    if (inp) {
       tp = intotcpcb(inp);
-      /* WHAT IF TP IS 0? */
+      // WHAT IF TP IS 0?
 #ifdef KPROF
       tcp_acounts[tp->t_state][req]++;
 #endif
       ostate = tp->t_state;
    } else
       ostate = 0;
-   switch (req) {
 
-   /*
-    * TCP attaches to socket via PRU_ATTACH, reserving space,
-    * and an internet control block.
-    */
+   switch (req) {
+   // TCP attaches to socket via PRU_ATTACH, reserving space,
+   // and an internet control block.
    case PRU_ATTACH:
       if (inp) {
          error = EISCONN;
@@ -254,6 +240,7 @@ tcp_usrreq(struct usn_socket *so, int req,
     * marker if URG set.  Possibly send more data.
     */
    case PRU_SEND:
+      DEBUG("send tcp packet");
       sbappend(&so->so_snd, m);
       error = tcp_output(tp);
       break;

@@ -156,7 +156,8 @@ udp_output(struct inpcb *inp, usn_mbuf_t *m, usn_mbuf_t *addr, usn_mbuf_t  *cont
        if ((ui->ui_sum = in_cksum(m, sizeof (struct udpiphdr) + len)) == 0)
       ui->ui_sum = 0xffff;
    }
-   ((usn_ip_t *)ui)->ip_len = htons(sizeof (struct udpiphdr) + len);
+   //((usn_ip_t *)ui)->ip_len = htons(sizeof (struct udpiphdr) + len);
+   ((usn_ip_t *)ui)->ip_len = (sizeof (struct udpiphdr) + len);
    ((usn_ip_t *)ui)->ip_ttl = inp->inp_ip.ip_ttl; /* XXX */
    ((usn_ip_t *)ui)->ip_tos = inp->inp_ip.ip_tos; /* XXX */
 

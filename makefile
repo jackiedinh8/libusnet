@@ -51,7 +51,7 @@ install:
 	$(MD5) $(BIN) ./run/bin/$(BIN)
 
 clean:
-	rm -rfv $(OBJS) $(BIN) stack
+	rm -rfv $(OBJS) $(BIN) stack usnet_udp_sample.o 
 
 love: clean all
    

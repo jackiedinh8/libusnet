@@ -190,6 +190,11 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
    struct rtentry *rt;
    ether_header_t *eh;
 
+   if ( m == NULL ) {
+      DEBUG("panic: null buffer");
+      return -1;
+   }
+
 #ifdef DUMP_PAYLOAD
    DEBUG("eth_output: dump info, ptr=%p, len=%d", m->head, m->mlen);
    dump_buffer((char*)m->head, m->mlen,"frm");
