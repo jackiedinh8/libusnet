@@ -41,6 +41,7 @@
 #include "usnet_if.h"
 #include "usnet_route.h"
 #include "usnet_socket.h"
+#include "usnet_rtsock.h"
 
 struct usn_in_addr g_zeroin_addr;
 
@@ -58,7 +59,7 @@ in_losing (struct inpcb *inp)
       info.rti_info[RTAX_GATEWAY] = rt->rt_gateway;
       info.rti_info[RTAX_NETMASK] = rt_mask(rt);
 
-      // FIXME: implement this
+      // FIXME: include compilation of usnet_rtsock.c
       //rt_missmsg(RTM_LOSING, &info, rt->rt_flags, 0);
 
       if (rt->rt_flags & RTF_DYNAMIC)

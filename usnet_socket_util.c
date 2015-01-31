@@ -62,8 +62,7 @@ sbreserve(struct sockbuf *sb, u_long cc)
 void
 sbrelease( struct sockbuf *sb)
 {
-   // FIXME: 
-   //sbflush(sb);
+   sbflush(sb);
    sb->sb_hiwat = sb->sb_mbmax = 0;
 }
 /*

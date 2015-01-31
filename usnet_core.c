@@ -598,7 +598,7 @@ setaffinity( int i)
 
 
 static int 
-receive_packets(struct netmap_ring *ring, u_int limit, int dump)
+usnet_frame_recv(struct netmap_ring *ring, u_int limit, int dump)
 {
    struct netmap_slot *slot;
    u_int               cur, rx, n;
@@ -745,7 +745,7 @@ usnet_dispatch()
                 continue;
              }
 
-             receive_packets(rxring, 512, 1);
+             usnet_frame_recv(rxring, 512, 1);
           }
        }
        //tcp_fasttimo();

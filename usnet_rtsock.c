@@ -33,7 +33,7 @@
  * @(#)rtsock.c   8.6 (Berkeley) 2/11/95
  */
 
-
+/*
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/proc.h>
@@ -46,7 +46,9 @@
 #include <net/if.h>
 #include <net/route.h>
 #include <net/raw_cb.h>
+*/
 
+#include "usnet_rtsock.h"
 struct	usn_sockaddr route_dst = { 2, PF_ROUTE, };
 struct	sockaddr route_src = { 2, PF_ROUTE, };
 struct	sockproto route_proto = { PF_ROUTE, };

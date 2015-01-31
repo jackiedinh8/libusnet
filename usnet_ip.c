@@ -628,7 +628,6 @@ usn_mbuf_t *
 ip_reass(usn_mbuf_t *m)
 {
    usn_mbuf_t      *p,*q,*nq;
-   usn_mbuf_t      *t;
    struct ipq      *fp;
    usn_ip_t        *ip = GETIP(m);//(usn_ip_t*)(m->head);
    int              hlen = ip->ip_hl << 2;
@@ -636,7 +635,7 @@ ip_reass(usn_mbuf_t *m)
 
    // Look for queue of fragments
    // of this datagram. 
-   // XXX It is better to use hash functions
+   // TODO: It is better to use hash functions
    for (fp = g_ipq.next; fp != NULL; fp = fp->next) {
       if (ip->ip_id == fp->ipq_id &&
           ip->ip_src.s_addr == fp->ipq_src.s_addr &&
@@ -677,11 +676,9 @@ found:
     * If first fragment to arrive, create a reassembly queue.
     */
    if (fp == 0) {
-      t = usn_get_mbuf(NULL,sizeof(struct ipq),0);
-      if ( t == NULL )
+      fp = (struct ipq *)usn_get_buf(NULL,sizeof(struct ipq));
+      if ( fp == NULL )
          goto dropfrag;
-
-      fp = (struct ipq *)(t->head);
 
       usn_insert_ipq(fp);
 
@@ -692,13 +689,13 @@ found:
       fp->ipq_src = ((usn_ip_t *)ip)->ip_src;
       fp->ipq_dst = ((usn_ip_t *)ip)->ip_dst;
 
-      goto check;
+      goto insert;
    }
 
    /*
     * Find a segment which begins after this one does.
     */
-   for (p = NULL, q = fp->frags_list; q ; p =q, q = q->next)
+   for (p=NULL, q=fp->frags_list; q; p=q, q=q->next)
       if (GETIP(q)->ip_off > ip->ip_off)
          break;
    /*
@@ -742,7 +739,9 @@ found:
       usn_free_mbuf(q);
    }
 
-check:
+insert:
+   // insert new segment into queue
+   ip_enq(m, q->prev);
    next = 0;
    for (p = NULL, q = fp->frags_list; q; p = q, q = q->next) {
       if (GETIP(q)->ip_off != next) {
@@ -788,7 +787,7 @@ check:
    q->head -= ip->ip_hl << 2;
    q->flags |= ~BUF_IP_MF;
 
-   // XXX free fp pointer
+   // free fp pointer
    usn_remove_ipq(fp);
 
    return q;
@@ -994,18 +993,45 @@ ip_slowtimo()
 }
 
 /*
+ * To ip_enq as remque is to insque.
+ */
+void
+ip_deq(usn_mbuf_t *p)
+{
+   if ( p == NULL )
+      return;
+   if ( p->prev )
+      p->prev->next = p->next;
+   if ( p->next )
+      p->next->prev = p->prev;
+}
+/*
+ * Free a fragment reassembly header and all
+ * associated datagrams.
+ */
+void
+ip_freef(struct ipq *fp)
+{
+   usn_mbuf_t *q, *p;
+   for (p = fp->frags_list, q = p; p; q = p) {
+      p = q->next;
+      ip_deq(q);
+      usn_free_mbuf(q);
+   }
+   //remque(fp);
+   usn_free_buf((u_char*)fp);
+}
+
+/*
  * Drain off all datagram fragments.
  */
 void
 ip_drain()
 {
-   // FIXME: remove all ip frags.
-/*
-   while (ipq.next != &g_ipq) {
+   while (g_ipq.next != &g_ipq) {
       //ipstat.ips_fragdropped++;
-      ip_freef(ipq.next);
+      ip_freef(g_ipq.next);
    }    
-*/
 }
 /*
  * Retrieve incoming source route for use in replies,
@@ -1109,7 +1135,7 @@ usn_remove_ipq(struct ipq *fp)
    for ( p = NULL, q = &g_ipq; q; p = q, q = q->next)
       if ( fp == q ) {
          p->next = q->next; 
-         usn_free_mbuf(IPQ_TO_MBUF(fp));
+         usn_free_buf((u_char*)fp);
          break;
       }
 }
@@ -1125,13 +1151,12 @@ insert_ipfrag(struct ipq *fp, struct ipasfrag *ip)
  * Like insque, but pointers in middle of structure.
  */
 inline void
-ip_enq(struct ipasfrag *p, struct ipasfrag *prev)
+ip_enq(usn_mbuf_t *p, usn_mbuf_t *prev)
 {
-
-   p->ipf_prev = prev;
-   p->ipf_next = prev->ipf_next;
-   prev->ipf_next->ipf_prev = p;
-   prev->ipf_next = p;
+   p->prev = prev;
+   p->next = prev->next;
+   prev->next->prev = p;
+   prev->next = p;
 }
 
 

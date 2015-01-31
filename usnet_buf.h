@@ -116,9 +116,15 @@ usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp);
            if (((m)->head - (m)->start ) >= (u_int)size ){\
               (m)->head -= size;\
               (m)->mlen += size;\
-           } else {\
-              usn_free_mbuf(m);\
-              m = NULL;\
+           } else {/*TODO: just allocate another mbuf with size bytes?*/\
+              usn_mbuf_t *n = usn_get_mbuf(0, m->mlen + size, 0);\
+              if ( n == NULL )\
+                 {usn_free_mbuf(m); m = NULL;}\
+              else{\
+                 n->head += size;\
+                 n->mlen -= size;\
+                 usn_copy_mbuf(m, size, m->mlen, (caddr_t)n->head);\
+              }\
            }
 
 void

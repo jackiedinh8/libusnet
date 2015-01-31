@@ -76,7 +76,7 @@ udp_usrreq(struct usn_socket *so, int req,
 
    (void)s;
 
-   // FIXME: do we need?
+   // TODO: do we need?
    //if (req == PRU_CONTROL)
    //   return (in_control(so, (u_long)m, (caddr_t)addr,
    //      (struct ifnet *)control));
@@ -267,7 +267,9 @@ usnet_bind_socket(u_int32 fd, u_int32 addr, u_short port)
       return -2;
 
    saddr = mtod(nam, struct usn_sockaddr_in*);
-   saddr->sin_len = 8; // FIXME: sizeof(struct usn_sockaddr_in);
+   //XXX: sizeof(struct usn_sockaddr_in)? 
+   //     Later comparison requires exact len of 8.
+   saddr->sin_len = 8; 
    saddr->sin_family = so->so_family;
    saddr->sin_port = htons(port);
    saddr->sin_addr.s_addr = addr;
@@ -448,10 +450,8 @@ usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
       so->so_appcb.read_cb(so->so_fd, 0, so->so_appcb.arg);
    }
 
-
-
-
    // XXX: clean mbuf if needed.
+   //      buffer management.
    return 0;
 }
 
@@ -463,7 +463,7 @@ usnet_udpwakeup_socket(struct inpcb* inp)
    struct usn_sockaddr addr;
    usn_mbuf_t  *m, *n, *maddr, *opts;
 
-   DEBUG("process a packet");
+   DEBUG("process udp packet");
    m = n = maddr = opts = NULL;
    if ( inp == NULL )
       return 0;
@@ -480,6 +480,7 @@ usnet_udpwakeup_socket(struct inpcb* inp)
       return 0;
 
    // FIXME: a loop of handling queue.
+   //        since m can be a chain.
    m = sb->sb_mb;
    n = m->queue;
    if ( m->flags & BUF_ADDR ) {
@@ -515,6 +516,7 @@ usnet_udpwakeup_socket(struct inpcb* inp)
         
    if ( so->so_options & SO_ACCEPTCONN ) {
       DEBUG("calling accept callback");
+      // FIXME: read_cb instead of accept_cb?
       so->so_appcb.accept_cb(so->so_fd, &addr, 
             8/*len of sockadrr_in*/, so->so_appcb.arg);
    }
@@ -542,7 +544,8 @@ usnet_read_socket(u_int fd, u_char *buf, u_int len)
       return 0;
    }
 
-   // FIXME: get buffer length and copy the buffer
+   // FIXME: get buffer length and copy the buffer.
+   //        think more about buffer management.
 
    return ret;
 }
@@ -558,7 +561,7 @@ usnet_get_sobuffer(u_int32 fd)
    
    buf = (usn_buf_t*)so->so_rcv.sb_mb;
 
-   // XXX
+   // FIXME: buffer management.
    so->so_rcv.sb_mb = NULL;
 
    return buf;
@@ -568,51 +571,7 @@ usnet_get_sobuffer(u_int32 fd)
 int32
 usnet_write_sobuffer(u_int fd, usn_buf_t *buf)
 {
-   struct usn_socket *so = usnet_get_socket(fd);
-   struct inpcb *pcb = 0;
-   usn_mbuf_t   *m = 0;
-   usn_ip_t     *ip;
-   usn_udphdr_t *uh;
-
-   if ( buf == NULL ) 
-      return 0;
-
-   if ( so == NULL )
-      return 0;
-
-   pcb = (struct inpcb*)so->so_pcb;
-
-   if ( pcb == NULL )
-      return 0;
-
-   m = (usn_mbuf_t*) buf;
-   if ( m->head - m->start < sizeof(*ip) + sizeof(*uh) ) {
-      // FIXME: reallocate mbuf.
-      DEBUG("reallacate mbuf: notyet");
-      return 0;
-   }
-   m->head -= sizeof(*uh);
-   m->mlen += sizeof(*uh);
-   uh = mtod(m, usn_udphdr_t*);
-
-   m->head -= sizeof(*ip);
-   m->mlen += sizeof(*ip);
-   ip = mtod(m, usn_ip_t*);
-
-   uh->uh_sport = pcb->inp_lport;
-   uh->uh_dport = g_udp_in.sin_port;//pcb->inp_fport;
-
-   ip->ip_src.s_addr = pcb->inp_laddr.s_addr;
-   ip->ip_dst.s_addr = inet_addr("10.10.10.1");//pcb->inp_faddr.s_addr;
-   ip->ip_len = ntohs(m->mlen);
-
-   // FIXME: enqueue msg
-   (void)so;
-   // FIXME: wakeup process
-
-   ipv4_output(m, 0, 0, IP_ROUTETOIF);
-
-   return 0;
+   return usnet_writeto_sobuffer(fd, buf, 0);
 }
 
 int32
@@ -650,36 +609,6 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
       usn_free_mbuf(nam);
 
    return ret;
-/*
-   if ( m->head - m->start < sizeof(*ip) + sizeof(*uh) ) {
-      // FIXME: reallocate mbuf.
-      DEBUG("reallacate mbuf: notyet");
-      return -4;
-   }
-   m->head -= sizeof(*uh);
-   m->mlen += sizeof(*uh);
-   uh = mtod(m, usn_udphdr_t*);
-
-   m->head -= sizeof(*ip);
-   m->mlen += sizeof(*ip);
-   ip = mtod(m, usn_ip_t*);
-
-   uh->uh_sport = pcb->inp_lport;
-   uh->uh_dport = addr->sin_port;//pcb->inp_fport;
-
-   ip->ip_src.s_addr = pcb->inp_laddr.s_addr;
-   ip->ip_dst.s_addr = addr->sin_addr.s_addr;
-   ip->ip_len = m->mlen;
-
-   // FIXME: enqueue msg
-   (void)so;
-   // FIXME: wakeup process
-   
-   // FIXME: should not call ipv4_output directly,
-   //        calling udp_output and tcp_output instead.
-   ret = ipv4_output(m, 0, 0, IP_ROUTETOIF);
-   return ret;
-*/
 }
 
 int32
@@ -705,7 +634,7 @@ usnet_writeto_sobuffer_old(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *a
 
    m = (usn_mbuf_t*) buf;
    if ( m->head - m->start < sizeof(*ip) + sizeof(*uh) ) {
-      // FIXME: reallocate mbuf.
+      // reallocate mbuf.
       DEBUG("reallocate mbuf: notyet");
       return -4;
    }
@@ -724,11 +653,8 @@ usnet_writeto_sobuffer_old(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *a
    ip->ip_dst.s_addr = addr->sin_addr.s_addr;
    ip->ip_len = m->mlen;
 
-   // FIXME: enqueue msg
    (void)so;
-   // FIXME: wakeup process
-   
-   // FIXME: should not call ipv4_output directly,
+   // should not call ipv4_output directly,
    //        calling udp_output and tcp_output instead.
    ret = ipv4_output(m, 0, 0, IP_ROUTETOIF);
 

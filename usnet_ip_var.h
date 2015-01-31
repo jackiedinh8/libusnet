@@ -26,7 +26,7 @@ struct   ipasfrag {
    u_short  ip_sum;
    struct   ipasfrag *ipf_next;  /* next fragment */
    struct   ipasfrag *ipf_prev;  /* previous fragment */
-};
+}__attribute__((packed));
 
 /*
  * Ip reassembly queue structure.  Each fragment

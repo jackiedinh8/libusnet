@@ -68,7 +68,7 @@ tcp_usrreq(struct usn_socket *so, int req,
    int ostate;
 
    DEBUG("tcp user request, req=%d", req);
-   // FIXME: do we need?
+   // TODO: do we need?
    //if (req == PRU_CONTROL)
    //   return (in_control(so, (u_long)m, (caddr_t)nam,
    //      (struct ifnet *)control));
@@ -252,7 +252,7 @@ tcp_usrreq(struct usn_socket *so, int req,
       break;
 
    case PRU_SENSE:
-      // FIXME: do we need it?
+      // TODO: do we need it?
       //((struct stat *) m)->st_blksize = so->so_snd.sb_hiwat;
       //(void) splx(s);
       return (0);

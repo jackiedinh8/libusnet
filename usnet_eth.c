@@ -116,15 +116,14 @@ eth_input(u_char *buf, int len)
 
 	et = (ether_header_t *)buf;
 
-   // XXX more checks here
 	if (len <= 0) {
-		// if_ierrors++;
+		DEBUG("panic: buffer has negative length");
 		return;
 	}
 
 #ifdef DUMP_PAYLOAD
    DEBUG("eth_input: dump info, ptr=%p, len=%d", buf, len);
-   dump_buffer((char*)buf,len,"frame");
+   dump_buffer((char*)buf,len,"frm");
 #endif
 
 	flags = 0;
@@ -136,7 +135,6 @@ eth_input(u_char *buf, int len)
 
 	/*
 	 *  construct mbuf for the frame.
-    *  XXX delay to copy as much as possible.
 	 */
 #ifdef _USN_ZERO_COPY_
    m = usn_get_mbuf_zc(buf, len, flags);
@@ -145,8 +143,8 @@ eth_input(u_char *buf, int len)
 #endif
 
 	if (m == 0) {
-      // XXX do statistics
       // if_nomem++ 
+      DEBUG("warn: mem failed");
 		return;
    }
    m->flags |= BUF_ETHERHDR;
@@ -265,7 +263,7 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
     * allocate another.
     */
 
-   // FIXME: ensuring that there is room for 14 bytes 
+   // TODO: ensuring that there is room for 14 bytes 
    //         at the front of the packet.
    if ( (m->flags & BUF_RAW) == 0 ) {
       BUF_PREPEND(m, sizeof(ether_header_t));

@@ -253,7 +253,7 @@ insert_ipfrag(struct ipq *fp, struct ipasfrag *ip);
 
 
 inline void
-ip_enq(struct ipasfrag *p, struct ipasfrag *prev);
+ip_enq(usn_mbuf_t *p, usn_mbuf_t *prev);
 
 #define  IA_SIN(ia) (&(((struct in_ifaddr *)(ia))->ia_addr))
 

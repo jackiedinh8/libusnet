@@ -241,7 +241,7 @@ m_adj( usn_mbuf_t *mp, int req_len)
 usn_mbuf_t *
 m_pullup(usn_mbuf_t *m, int len)
 {
-   // TODO implement this 
+   // FIXME implement this 
    DEBUG("not implemeted yet");
    return m;
 }
