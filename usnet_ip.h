@@ -222,7 +222,8 @@ struct ipoption {
 
 
 extern u_short  g_ip_id;            /* ip packet ctr, for ids */
-extern int g_ip_defttl;
+extern u_int32 g_ip_defttl;
+extern u_int32 g_maxfragsperpacket;
 
 unsigned short 
 in_cksum(usn_mbuf_t *m, int len);
@@ -251,9 +252,12 @@ usn_remove_ipq(struct ipq *fp);
 inline void
 insert_ipfrag(struct ipq *fp, struct ipasfrag *ip);
 
-
 inline void
 ip_enq(usn_mbuf_t *p, usn_mbuf_t *prev);
+
+void
+ip_freef(struct ipq *fp);
+
 
 #define  IA_SIN(ia) (&(((struct in_ifaddr *)(ia))->ia_addr))
 

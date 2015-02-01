@@ -41,6 +41,7 @@ struct ipq {
    u_char           ipq_p;                /* protocol of this fragment */
    u_short          ipq_id;               /* sequence id for reassembly */
    usn_mbuf_t      *frags_list;           /* to ip headers of fragments */
+   u_int32          ipq_nfrags;
    struct usn_in_addr   ipq_src,ipq_dst; 
 };
 

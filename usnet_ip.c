@@ -55,9 +55,11 @@
 
 #define  IPFORWARDING   0 
 #define  IPSENDREDIRECTS   1
-int g_ipsendredirects;// = IPSENDREDIRECTS;
-int g_ipforwarding;// = IPFORWARDING;
-int g_ip_defttl = IPDEFTTL;
+#define  IPFRAGSNUM   16
+u_int32 g_ipsendredirects;// = IPSENDREDIRECTS;
+u_int32 g_ipforwarding;// = IPFORWARDING;
+u_int32 g_ip_defttl = IPDEFTTL;
+u_int32 g_maxfragsperpacket;
 u_short  g_ip_id;            /* ip packet ctr, for ids */
 
 void 
@@ -67,6 +69,7 @@ usnet_ipv4_init()
    g_ip_id = 1;
    g_ipforwarding = IPFORWARDING;
    g_ipsendredirects = IPSENDREDIRECTS;
+   g_maxfragsperpacket = IPFRAGSNUM;
    DEBUG("init_ipv4: done");
 }
 
@@ -688,7 +691,7 @@ found:
       fp->frags_list = m;
       fp->ipq_src = ((usn_ip_t *)ip)->ip_src;
       fp->ipq_dst = ((usn_ip_t *)ip)->ip_dst;
-
+      fp->ipq_nfrags = 0;
       goto insert;
    }
 
@@ -742,22 +745,22 @@ found:
 insert:
    // insert new segment into queue
    ip_enq(m, q->prev);
+   fp->ipq_nfrags++;
+
    next = 0;
    for (p = NULL, q = fp->frags_list; q; p = q, q = q->next) {
       if (GETIP(q)->ip_off != next) {
-         // XXX do statistics
+         // TODO: do statistics
          goto done;
       }
       next += GETIP(q)->ip_len;
    }
-   /* Make sure the last packet didn't have the IP_MF flag */
+   /* XXX: Make sure the last packet didn't have the IP_MF flag */
    if ( p->flags & BUF_IP_MF ) {
-      // XXX implement this
-      //if (fp->ipq_nfrags > V_maxfragsperpacket) {
-      //   IPSTAT_ADD(ips_fragdropped, fp->ipq_nfrags);
-      //   ip_freef(head, fp);
-      //}
-      //ip_freef(head, fp);
+      if (fp->ipq_nfrags > g_maxfragsperpacket) {
+         //IPSTAT_ADD(ips_fragdropped, fp->ipq_nfrags);
+         ip_freef(fp);
+      }
       goto done;
    }
 
@@ -767,10 +770,10 @@ insert:
    q = fp->frags_list;
    ip = mtoiphdr(q);
    if (next + (ip->ip_hl << 2) > IP_MAXPACKET) {
-      // XXX implement this
+      // TODO: do stats
       //IPSTAT_INC(ips_toolong);
       //IPSTAT_ADD(ips_fragdropped, fp->ipq_nfrags);
-      //ip_freef(head, fp);
+      ip_freef(fp);
       goto done;
    }
 
@@ -1018,8 +1021,8 @@ ip_freef(struct ipq *fp)
       ip_deq(q);
       usn_free_mbuf(q);
    }
-   //remque(fp);
-   usn_free_buf((u_char*)fp);
+   usn_remove_ipq(fp);
+   //usn_free_buf((u_char*)fp);
 }
 
 /*
