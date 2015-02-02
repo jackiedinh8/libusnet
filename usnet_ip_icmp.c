@@ -184,6 +184,7 @@ icmp_input(usn_mbuf_t *m,int hlen)
 	//extern u_char     ip_protox[];
 	usn_ip_t         *ip = GETIP(m);
 	u_int             icmplen = ntohs((u_short)ip->ip_len);
+	//u_int32           icmplen = usn_get_mbuflen(m);
 	u_int             i;
 	int               code;
 

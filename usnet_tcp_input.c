@@ -195,7 +195,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	int len, tlen, off;
 	struct tcpcb *tp = 0;
 	int tiflags;
-	struct usn_socket *so;
+	struct usn_socket *so = 0;
 	int todrop, acked, ourfinisacked, needoutput = 0;
 	short ostate;
 	struct usn_in_addr laddr;
@@ -212,17 +212,16 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	if (iphlen > sizeof (usn_ip_t))
 		ip_stripoptions(m, (usn_mbuf_t *)0);
 	if (m->mlen < sizeof (struct tcpiphdr)) {
-      // FIXME
 		if ((m = m_pullup(m, sizeof (struct tcpiphdr))) == 0) {
 			g_tcpstat.tcps_rcvshort++;
 			return;
 		}
 		ti = mtod(m, struct tcpiphdr *);
 	}
-
-
-	// Checksum extended TCP header and data.
-   dump_buffer((char*)m->head,m->mlen,"tcp");
+   /*
+	 * Checksum extended TCP header and data.
+    */
+   dump_chain(m,"tcp");
 	tlen = ntohs(((usn_ip_t *)ti)->ip_len);
 	len = sizeof (usn_ip_t) + tlen;
 	ti->ti_next = ti->ti_prev = 0;
@@ -230,16 +229,16 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	ti->ti_len = (u_short)tlen;
 	HTONS(ti->ti_len);
    DEBUG("tcp cksum");
-   dump_buffer((char*)m->head,m->mlen,"tcp");
+   dump_chain(m,"tcp");
    ti->ti_sum = in_cksum(m, len);
 	if (ti->ti_sum) {
 		g_tcpstat.tcps_rcvbadsum++;
 		goto drop;
 	}
-
-
-	// Check that TCP offset makes sense,
-	// pull out TCP options and adjust length.		XXX
+   /*
+	 * Check that TCP offset makes sense,
+	 * pull out TCP options and adjust length. XXX
+    */
 	off = ti->ti_off << 2;
 	if (off < sizeof (struct tcphdr) || off > tlen) {
 		g_tcpstat.tcps_rcvbadoff++;
@@ -329,8 +328,9 @@ findpcb:
 	else
 		tiwin = ti->ti_win;
 
-   DEBUG("socket options, options=%x", so->so_options);
 	so = inp->inp_socket;
+   DEBUG("socket options, options=%x", so->so_options);
+
 	if (so->so_options & (SO_DEBUG|SO_ACCEPTCONN)) {
 		if (so->so_options & SO_DEBUG) {
 			ostate = tp->t_state;
@@ -405,8 +405,8 @@ findpcb:
 	    tp->snd_nxt == tp->snd_max) {
 		// If last ACK falls within this segment's sequence numbers,
 		// record the timestamp.
-		if (ts_present && SEQ_LEQ(ti->ti_seq, tp->last_ack_sent) &&
-		   SEQ_LT(tp->last_ack_sent, ti->ti_seq + ti->ti_len)) {
+      if ( ts_present && TSTMP_GEQ(ts_val, tp->ts_recent) &&
+            SEQ_LEQ(ti->ti_seq, tp->last_ack_sent) ){
 			tp->ts_recent_age = g_tcp_now;
 			tp->ts_recent = ts_val;
 		}

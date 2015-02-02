@@ -241,9 +241,10 @@ m_adj( usn_mbuf_t *mp, int req_len)
 usn_mbuf_t *
 m_pullup(usn_mbuf_t *m, int len)
 {
-   // FIXME implement this 
-   DEBUG("not implemeted yet");
-   return m;
+   if ( m->mlen >= len )
+      return m;
+   DEBUG("panic: not enough space");
+   return NULL;
 }
 
 // create a new mbuf and copy len of bytes from m.
@@ -328,3 +329,13 @@ usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp)
    }   
 }
 
+u_int32 
+usn_get_mbuflen(usn_mbuf_t *m)
+{
+   u_int32 len = 0;
+   while (m) {
+      len += m->mlen;
+      m = m->next;
+   }
+   return len;
+}
