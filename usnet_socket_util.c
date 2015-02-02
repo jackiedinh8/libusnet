@@ -248,19 +248,15 @@ sbdrop(struct sockbuf *sb, int len)
 {
    usn_mbuf_t *m, *mn;
    usn_mbuf_t *next;
-   // FIXME: reimplement it. 
-   //next = (m = sb->sb_mb) ? m->m_nextpkt : 0;
-   next = (m = sb->sb_mb) ? m->next : 0;
+   next = (m = sb->sb_mb) ? m->queue : 0;
    while (len > 0) {
       if (m == 0) {
          if (next == 0) {
-            // FXIME
             DEBUG("panic: sbdrop");
             return;
          }
          m = next;
-         //next = m->m_nextpkt;
-         next = m->next;
+         next = m->queue;
          continue;
       }
       if (m->mlen > len) {
@@ -270,24 +266,17 @@ sbdrop(struct sockbuf *sb, int len)
          break;
       }
       len -= m->mlen;
-      //FIXME: review it.
       sbfree(sb, m);
-
-      //MFREE(m, mn);
-      mn = m->next;
-      usn_free_mbuf(m);
+      MFREE(m, mn);
       m = mn;
    }
    while (m && m->mlen == 0) {
       sbfree(sb, m);
-      //MFREE(m, mn);
-      mn = m->next;
-      usn_free_mbuf(m);
+      MFREE(m, mn);
       m = mn;
    }
    if (m) {
       sb->sb_mb = m;
-      //m->m_nextpkt = next;
       m->next = next;
    } else
       sb->sb_mb = next;

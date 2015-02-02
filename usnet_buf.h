@@ -109,7 +109,7 @@ usn_copy_data(usn_mbuf_t *m, int off0, int len);
 void
 usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp);
 
-#define MBUF_GET(size) usn_malloc((size))
+#define MBUF_GET(size) usn_get_buf(0,(size))
 #define  mtod(m,t)   ((t)((m)->head))
 
 #define BUF_PREPEND(m,size) \
@@ -126,6 +126,9 @@ usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp);
                  usn_copy_mbuf(m, size, m->mlen, (caddr_t)n->head);\
               }\
            }
+#define MFREE(m, nn)\
+           { (nn) = (m)->next; \
+             usn_free_mbuf(m); }
 
 void
 m_adj( usn_mbuf_t *mp, int req_len);

@@ -253,7 +253,7 @@ struct usn_sockproto {
 /* adjust counters in sb reflecting freeing of m */
 #define  sbfree(sb, m) { \
       (sb)->sb_cc -= (m)->mlen; \
-      (sb)->sb_mbcnt -= BUF_MSIZE; \
+      (sb)->sb_mbcnt -= (m)->end - (m)->start; \
       /*if ((m)->m_flags & M_EXT)*/ \
          /*(sb)->sb_mbcnt -= (m)->m_ext.ext_size;*/ \
 }

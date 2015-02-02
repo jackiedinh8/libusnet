@@ -426,7 +426,7 @@ findpcb:
 				acked = ti->ti_ack - tp->snd_una;
 				g_tcpstat.tcps_rcvackpack++;
 				g_tcpstat.tcps_rcvackbyte += acked;
-            // FIXME
+
 				sbdrop(&so->so_snd, acked);
 
 				tp->snd_una = ti->ti_ack;
@@ -445,7 +445,7 @@ findpcb:
 					tp->t_timer[TCPT_REXMT] = tp->t_rxtcur;
 
 				if (so->so_snd.sb_flags & SB_NOTIFY) {
-               DEBUG("FIXME: sowwakeup notify");
+               DEBUG("FIXME: sowwakeup notify, write callback");
 					sowwakeup(so);
             }
 				if (so->so_snd.sb_cc)
