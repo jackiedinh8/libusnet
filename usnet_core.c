@@ -180,6 +180,17 @@ usnet_drain(int fd, size_t len)
 }
 
 void
+dump_chain(usn_mbuf_t *m, const char *prefix)
+{
+   usn_mbuf_t *n = m;
+   while (n) {
+      dump_buffer((char*)m->head, m->mlen, prefix);
+      printf("\n");
+      n = n->next;
+   }
+}
+
+void
 dump_buffer(char *p, int len, const char *prefix)
 {
    char buf[128];

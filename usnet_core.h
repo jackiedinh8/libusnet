@@ -174,6 +174,9 @@ usnet_send_frame(usn_mbuf_t *m);
 void
 dump_buffer(char *p, int len, const char *prefix);
 
+void
+dump_chain(usn_mbuf_t *m, const char *prefix);
+
 int
 usnet_get_options(int argc, char* const *argv);
 

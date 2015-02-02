@@ -654,7 +654,10 @@ found:
     * Adjust ip_len to not reflect header,
     * convert offset of this to bytes.
     */
-   ip->ip_len -= hlen;
+   ip->ip_len = ntohs(ip->ip_len) - hlen;
+   DEBUG("ip_len=%d, ip_off=%d(%d)", ip->ip_len, 
+         ip->ip_off, ntohs(ip->ip_off));
+   ip->ip_off = ntohs(ip->ip_off);
    if (ip->ip_off & IP_MF) {
       /*   
        * Make sure that fragments have a data length
@@ -672,8 +675,8 @@ found:
     * Presence of header sizes in mbufs
     * would confuse code below.
     */
-   m->head += hlen; 
-   m->mlen -= hlen;
+   //m->head += hlen; 
+   //m->mlen -= hlen;
 
    /*
     * If first fragment to arrive, create a reassembly queue.
@@ -691,8 +694,8 @@ found:
       fp->frags_list = m;
       fp->ipq_src = ((usn_ip_t *)ip)->ip_src;
       fp->ipq_dst = ((usn_ip_t *)ip)->ip_dst;
-      fp->ipq_nfrags = 0;
-      goto insert;
+      fp->ipq_nfrags = 1;
+      goto check;
    }
 
    /*
@@ -740,13 +743,13 @@ found:
       nq = q->next;
       m->next = nq;
       usn_free_mbuf(q);
+      q = nq;
    }
-
-insert:
    // insert new segment into queue
-   ip_enq(m, q->prev);
+   //ip_enq(m, q->prev);
    fp->ipq_nfrags++;
 
+check:
    next = 0;
    for (p = NULL, q = fp->frags_list; q; p = q, q = q->next) {
       if (GETIP(q)->ip_off != next) {
@@ -768,11 +771,14 @@ insert:
     * Reassembly is complete; concatenate fragments.
     */
    q = fp->frags_list;
-   ip = mtoiphdr(q);
+   ip = GETIP(q);
+   DEBUG("lask check, ip_len=%d, next=%d", ip->ip_len, next);
+
    if (next + (ip->ip_hl << 2) > IP_MAXPACKET) {
       // TODO: do stats
       //IPSTAT_INC(ips_toolong);
       //IPSTAT_ADD(ips_fragdropped, fp->ipq_nfrags);
+      DEBUG("drop ip frags");
       ip_freef(fp);
       goto done;
    }
@@ -783,16 +789,24 @@ insert:
     * dequeue and discard fragment reassembly header.
     * Make header visible.
     */
-   ip->ip_len = (ip->ip_hl << 2) + next;
+   ip->ip_len = htons((ip->ip_hl << 2) + next);
    //ip->ip_src = fp->ipq_src;
    //ip->ip_dst = fp->ipq_dst;
-   q->mlen += ip->ip_hl << 2;
-   q->head -= ip->ip_hl << 2;
+   //q->mlen += ip->ip_hl << 2;
+   //q->head -= ip->ip_hl << 2;
    q->flags |= ~BUF_IP_MF;
 
-   // free fp pointer
+   // update len of mbuf chain to reflect data part.
+   p = q->next;
+   while (p){
+      hlen = GETIP(p)->ip_hl << 2;
+      p->head += hlen;
+      p->mlen -= hlen;
+      p = p->next;
+   }
+   // remove head of reassemly list.
    usn_remove_ipq(fp);
-
+   DEBUG("reassembly done, ip_len=%d(%d)", ip->ip_len, ntohs(ip->ip_len));
    return q;
 
 dropfrag:
@@ -931,7 +945,8 @@ ours:
       if (m == 0)
          goto next;
       //ipstat.ips_reassembled++;
-      pip  = mtoiphdr(m);
+      pip  = GETIP(m);
+      dump_chain(m,"ip4");
       /* Get the header length of the reassembled packet */
       hlen = pip->ip_hl << 2;
    }
