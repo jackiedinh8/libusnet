@@ -239,11 +239,52 @@ m_adj( usn_mbuf_t *mp, int req_len)
 
 
 usn_mbuf_t *
-m_pullup(usn_mbuf_t *m, int len)
+m_pullup(usn_mbuf_t *n, int len)
 {
-   if ( m->mlen >= len )
-      return m;
-   DEBUG("panic: not enough space");
+   usn_mbuf_t *m;
+   u_int32 exlen; 
+   u_int32 cnt;
+   if ( n->head + len <= n->end ) { // have enough space
+      if ( n->mlen >= len )
+         return n;
+      m = n;
+      n = n->next;
+      len -= m->mlen;
+   } else { // allocate new mbuf
+      exlen = n->head - n->start + len;
+      m = usn_get_mbuf(0, exlen, 0); 
+      if ( m == NULL ) {
+        DEBUG("panic: not enough space");
+        goto bad;
+      }
+      bcopy(n->start, m->start, n->head - n->start);
+      m->head += n->head - n->start;
+      n->mlen = 0;
+   }
+   
+   do {
+      cnt = min(n->mlen, len);
+      bcopy(n->head, m->head + m->mlen, cnt);
+      len -= cnt;
+      m->mlen += cnt;
+      n->mlen -= cnt;
+      if ( n->mlen )
+         n->head += cnt;
+      else {
+         usn_mbuf_t *t;
+         MFREE(n, t);
+         n = t;
+      }
+   } while ( len > 0 && n );
+   
+   if ( len > 0 ) {
+      usn_free_mbuf(m);
+      goto bad;
+   }   
+   m->next = n;
+   return m;
+bad:
+   usn_free_mbuf_chain(n);
    return NULL;
 }
 

@@ -800,13 +800,14 @@ check:
    p = q->next;
    while (p){
       hlen = GETIP(p)->ip_hl << 2;
+      DEBUG("mbuf chain: hlen=%d, mlen=%d", hlen, p->mlen);
       p->head += hlen;
       p->mlen -= hlen;
       p = p->next;
    }
    // remove head of reassemly list.
    usn_remove_ipq(fp);
-   DEBUG("reassembly done, ip_len=%d(%d)", ip->ip_len, ntohs(ip->ip_len));
+   DEBUG("reassembly done, ip_len=%d(%d), mlen=%d", ip->ip_len, ntohs(ip->ip_len), q->mlen);
    return q;
 
 dropfrag:
@@ -867,6 +868,7 @@ ipv4_input(usn_mbuf_t* m)
               ntohs(pip->ip_len), hlen);
       goto bad; 
    }
+   m->mlen = ntohs(pip->ip_len);
 
    // 2. Option processing and forward
    if (hlen > sizeof (usn_ip_t) && ip_dooptions(m)) {
