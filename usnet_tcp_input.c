@@ -207,7 +207,9 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	g_tcpstat.tcps_rcvtotal++;
 	// Get IP and TCP header together in first mbuf.
 	// Note: IP leaves IP header in first mbuf.
+#ifdef DUMP_PAYLOAD
    dump_chain(m,"tcp");
+#endif
 	ti = mtod(m, struct tcpiphdr *);
 	if (iphlen > sizeof (usn_ip_t))
 		ip_stripoptions(m, (usn_mbuf_t *)0);
@@ -216,7 +218,9 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 			g_tcpstat.tcps_rcvshort++;
 			return;
 		}
+#ifdef DUMP_PAYLOAD
       dump_chain(m,"pullup");
+#endif
 		ti = mtod(m, struct tcpiphdr *);
 	}
    /*
@@ -1138,7 +1142,9 @@ step6:
 			tp->rcv_up = tp->rcv_nxt;
 dodata:							// XXX
    DEBUG("Handle data");
+#ifdef DUMP_PAYLOAD
    dump_buffer((char*)m->head, m->mlen,"tcp");
+#endif
 
 	// Process the segment text, merging it into the TCP sequencing queue,
 	// and arranging for acknowledgment of receipt if necessary.

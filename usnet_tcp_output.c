@@ -478,7 +478,9 @@ send:
 	//error = ipv4_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 	//    so->so_options & SO_DONTROUTE, 0);
    DEBUG("call ipv4_output");
+#ifdef DUMP_PAYLOAD
    dump_buffer((char*)m->head,m->mlen, "tcp");
+#endif
 	error = ipv4_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 	    so->so_options & SO_DONTROUTE);
 

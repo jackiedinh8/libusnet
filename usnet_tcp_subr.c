@@ -131,8 +131,8 @@ tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
 		ti = mtod(m, struct tcpiphdr *);
 		flags = TH_ACK;
 	} else {
-      // FIXME: reuse the fisrt mbuf, i.e. packet header.
-		usn_free_mbuf(m->next);
+      // reuse the fisrt mbuf, i.e. packet header.
+		usn_free_mbuf_chain(m->next);
 		m->next = 0;
 		bcopy((caddr_t)ti, m->head, sizeof (struct tcpiphdr));
 		m->mlen = sizeof (struct tcpiphdr);

@@ -446,7 +446,9 @@ usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
          DEBUG("panic: empty buffer");
          return -4;
       }
+#ifdef DUMP_PAYLOAD
       dump_buffer((char*)sb->sb_mb->head, sb->sb_mb->mlen,"app");
+#endif
       so->so_appcb.read_cb(so->so_fd, 0, so->so_appcb.arg);
    }
 

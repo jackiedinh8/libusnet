@@ -182,6 +182,7 @@ usnet_drain(int fd, size_t len)
 void
 dump_chain(usn_mbuf_t *m, const char *prefix)
 {
+   return;
    usn_mbuf_t *n = m;
    while (n) {
       printf("mlen=%d, mflags=%d\n", n->mlen, n->flags);
@@ -718,6 +719,7 @@ usnet_dispatch()
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->head,
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->cur,
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->tail);
+          tcp_fasttimo();
           tcp_slowtimo();
           continue;
        }
@@ -760,7 +762,7 @@ usnet_dispatch()
              usnet_frame_recv(rxring, 512, 1);
           }
        }
-       //tcp_fasttimo();
+       tcp_fasttimo();
        tcp_slowtimo();
    }
    nm_close(g_nmd);
