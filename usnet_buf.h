@@ -136,4 +136,10 @@ m_adj( usn_mbuf_t *mp, int req_len);
 usn_mbuf_t *
 m_pullup(usn_mbuf_t *mp, int len);
 
+u_int32 
+usn_get_mbuflen(usn_mbuf_t *m);
+
+u_int32 
+usn_get_mbuf_actlen(usn_mbuf_t *m);
+
 #endif //!_USNET_BUF_H_

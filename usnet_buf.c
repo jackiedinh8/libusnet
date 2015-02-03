@@ -380,3 +380,15 @@ usn_get_mbuflen(usn_mbuf_t *m)
    }
    return len;
 }
+
+u_int32 
+usn_get_mbuf_actlen(usn_mbuf_t *m)
+{
+   u_int32 len = 0;
+   while (m) {
+      len += m->end - m->start;
+      m = m->next;
+   }
+   return len;
+}
+

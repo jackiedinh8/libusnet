@@ -207,6 +207,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	g_tcpstat.tcps_rcvtotal++;
 	// Get IP and TCP header together in first mbuf.
 	// Note: IP leaves IP header in first mbuf.
+   dump_chain(m,"tcp");
 	ti = mtod(m, struct tcpiphdr *);
 	if (iphlen > sizeof (usn_ip_t))
 		ip_stripoptions(m, (usn_mbuf_t *)0);
@@ -221,7 +222,6 @@ tcp_input(usn_mbuf_t *m, int iphlen)
    /*
 	 * Checksum extended TCP header and data.
     */
-   dump_chain(m,"tcp");
 	tlen = ntohs(((usn_ip_t *)ti)->ip_len);
 	len = sizeof (usn_ip_t) + tlen;
 	ti->ti_next = ti->ti_prev = 0;
@@ -428,7 +428,7 @@ findpcb:
 				sbdrop(&so->so_snd, acked);
 
 				tp->snd_una = ti->ti_ack;
-				usn_free_mbuf(m);
+				usn_free_mbuf_chain(m);
 
 				// If all outstanding data are acked, stop
 				// retransmit timer, otherwise restart timer
@@ -1155,7 +1155,7 @@ dodata:							// XXX
 		// buffer size.
 		len = so->so_rcv.sb_hiwat - (tp->rcv_adv - tp->rcv_nxt);
 	} else {
-		usn_free_mbuf(m);
+		usn_free_mbuf_chain(m);
 		tiflags &= ~TH_FIN;
 	}
 
@@ -1163,13 +1163,11 @@ dodata:							// XXX
 	// that the connection is closing.
 	if (tiflags & TH_FIN) {
 		if (TCPS_HAVERCVDFIN(tp->t_state) == 0) {
-         //FIXME
 			socantrcvmore(so);
 			tp->t_flags |= TF_ACKNOW;
 			tp->rcv_nxt++;
 		}
 		switch (tp->t_state) {
-
 
 		// In SYN_RECEIVED and ESTABLISHED STATES
 		// enter the CLOSE_WAIT state.
@@ -1178,13 +1176,11 @@ dodata:							// XXX
 			tp->t_state = TCPS_CLOSE_WAIT;
 			break;
 
-
 		// If still in FIN_WAIT_1 STATE FIN has not been acked so
 		// enter the CLOSING state.
 		case TCPS_FIN_WAIT_1:
 			tp->t_state = TCPS_CLOSING;
 			break;
-
 
 		// In FIN_WAIT_2 state enter the TIME_WAIT state,
 		// starting the time-wait timer, turning off the other 
@@ -1196,7 +1192,6 @@ dodata:							// XXX
 			soisdisconnected(so);
 			break;
 
-
 		// In TIME_WAIT state restart the 2 MSL time_wait timer.
 		case TCPS_TIME_WAIT:
 			tp->t_timer[TCPT_2MSL] = 2 * TCPTV_MSL;
@@ -1205,7 +1200,6 @@ dodata:							// XXX
 	}
 	if (so->so_options & SO_DEBUG)
 		tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);
-
 
 	// Return any desired output.
 	if (needoutput || (tp->t_flags & TF_ACKNOW))
@@ -1218,7 +1212,7 @@ dropafterack:
 	// sequence space, where the ACK reflects our state.
 	if (tiflags & TH_RST)
 		goto drop;
-	usn_free_mbuf(m);
+	usn_free_mbuf_chain(m);
 	tp->t_flags |= TF_ACKNOW;
 	tcp_output(tp);
 	return;
@@ -1251,7 +1245,7 @@ drop:
 	// Drop space held by incoming segment and return.
 	if (tp && (tp->t_inpcb->inp_socket->so_options & SO_DEBUG))
 		tcp_trace(TA_DROP, ostate, tp, &g_tcp_saveti, 0);
-	usn_free_mbuf(m);
+	usn_free_mbuf_chain(m);
 	// destroy temporarily created socket
 	if (dropsocket)
 		soabort(so);

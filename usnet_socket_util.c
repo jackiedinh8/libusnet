@@ -408,13 +408,8 @@ socantrcvmore( struct usn_socket *so)
 int
 soabort( struct usn_socket *so)
 {        
-   // FIXME: implement it.
-   return 0;
-/*   
-   return (
-       (*so->so_proto->pr_usrreq)(so, PRU_ABORT,
-      (struct mbuf *)0, (struct mbuf *)0, (struct mbuf *)0));
-*/
+   return ((*so->so_usrreq)(so, PRU_ABORT,
+      (usn_mbuf_t *)0, (usn_mbuf_t *)0, (usn_mbuf_t *)0));
 }
 
 /*
@@ -425,31 +420,21 @@ soabort( struct usn_socket *so)
 void
 sbcompress(struct sockbuf *sb, usn_mbuf_t *m, usn_mbuf_t *n) 
 {
-   int eor = 0;
-   struct mbuf *o; 
-
-   (void) o;
+   usn_mbuf_t *t; 
 
    while (m) {
-      eor |= m->flags & BUF_EOR;
-      if (m->mlen == 0 
-          // FIXME: review it. 
-          //&& (eor == 0 ||
-          // (((o = m->next) || (o = n)) ))
-      ) {
-         usn_free_mbuf(m);
-         m = NULL;
+      if (m->mlen == 0 ) {
+         MFREE(m,t);
+         m = t;
          continue;
       }   
-      if (n && (n->flags & BUF_EOR) == 0
-          // && (n->head + n->mlen + m->mlen) < &n->m_dat[MLEN]
-          ) {
+      if (n && (n->head + n->mlen + m->mlen) < n->end) {
          bcopy(mtod(m, caddr_t), mtod(n, caddr_t) + n->mlen,
              (unsigned)m->mlen);
          n->mlen += m->mlen;
          sb->sb_cc += m->mlen;
-         usn_free_mbuf(m);
-         m = NULL;
+         MFREE(m,t);
+         m = t;
          continue;
       }   
       if (n) 
@@ -462,13 +447,40 @@ sbcompress(struct sockbuf *sb, usn_mbuf_t *m, usn_mbuf_t *n)
       m = m->next;
       n->next = 0;
    }  
-   if (eor) {
-      if (n)
-         n->flags |= eor;
-      else
-         DEBUG("semi-panic: sbcompress\n");
-   }     
+   return; 
 }  
+
+/*
+ * the mbuf chain begins a new record.
+ */
+void
+sbappendrecord(struct sockbuf *sb, usn_mbuf_t *m0)
+{
+   usn_mbuf_t *m; 
+
+   if (m0 == 0)
+      return;
+   m = sb->sb_mb;
+   if (m)
+      while (m->queue)
+         m = m->queue;
+   /*  
+    * Put the first mbuf on the queue.
+    * Note this permits zero length records.
+    */
+   sballoc(sb, m0);
+   if (m) 
+      m->queue = m0; 
+   else
+      sb->sb_mb = m0; 
+   m = m0->next;
+   m0->next = 0;
+   if (m && (m0->flags & BUF_EOR)) {
+      m0->flags &= ~BUF_EOR;
+      m->flags |= BUF_EOR;
+   }
+   sbcompress(sb, m, m0);
+}
 
 /*
  * Append mbuf chain m to the last record in the
@@ -479,25 +491,30 @@ sbcompress(struct sockbuf *sb, usn_mbuf_t *m, usn_mbuf_t *n)
 void    
 sbappend(struct sockbuf *sb, usn_mbuf_t *m)
 {
+/*
    sb->sb_mb = m;
    sb->sb_cc += m->mlen;
    return;
-/*
+*/
    usn_mbuf_t *n;
    if (m == 0)
       return;
-   if (n = sb->sb_mb) {
+   n = sb->sb_mb;
+   if (n) {
       while (n->queue)
          n = n->queue;
-         do {
-            if (n->flags & BUF_EOR) {
-               sbappendrecord(sb, m); // XXXXXX!!!!
-               return;
-            }
-        } while (n->m_next && (n = n->m_next));
+      do {
+/*
+         if (n->flags & BUF_EOR) {
+            DEBUG("end of record");
+            sbappendrecord(sb, m); // XXXXXX!!!!
+            return;
+         }
+*/
+      } while (n->next && (n = n->next));
    }
    sbcompress(sb, m, n);
-*/
+   return;
 }
 
 /*

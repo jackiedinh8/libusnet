@@ -244,10 +244,10 @@ struct usn_sockproto {
     ((u_long) min((u_int)((sb)->sb_hiwat - (sb)->sb_cc), \
     (u_int)((sb)->sb_mbmax - (sb)->sb_mbcnt)))
 
-/* adjust counters in sb reflecting allocation of m */
+/* adjust counters in sb reflecting allocation of chain m */
 #define  sballoc(sb, m) { \
-   (sb)->sb_cc += (m)->mlen; \
-   (sb)->sb_mbcnt += m->end - m->head; \
+   (sb)->sb_cc += usn_get_mbuflen(m); \
+   (sb)->sb_mbcnt += usn_get_mbuf_actlen(m); \
 }
 
 /* adjust counters in sb reflecting freeing of m */

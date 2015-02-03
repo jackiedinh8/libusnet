@@ -136,7 +136,6 @@ again:
 	if (SEQ_LT(tp->snd_nxt + len, tp->snd_una + so->so_snd.sb_cc))
 		flags &= ~TH_FIN;
 
-   // FIXME: check return value.
 	win = sbspace(&so->so_rcv);
 
 	// Sender silly window avoidance.  If connection is idle
@@ -329,7 +328,6 @@ send:
 		m->head -= hdrlen;
 		m->mlen += hdrlen;
 
-
 		// If we're sending everything we've got, set PUSH.
 		// (This will keep happy those implementations which only
 		// give data to the user when a buffer fills or
@@ -360,7 +358,6 @@ send:
 	if (tp->t_template == 0)
 		DEBUG("panic: tcp_output");
 	bcopy((caddr_t)tp->t_template, (caddr_t)ti, sizeof (struct tcpiphdr));
-
 
 	// Fill in fields, remembering maximum advertised
 	// window for use in delaying messages about window sizes.
