@@ -125,7 +125,7 @@ in_cksum(usn_mbuf_t *m, int len)
 			} else
 				sum += *w++;
 			ADDCARRY(sum);
-         //DEBUG("*w=%d, sum=%d",*w,sum);
+         DEBUG("*w=%d, sum=%d",*w,sum);
 		}
 		if (mlen == -1)
 			/*
@@ -787,20 +787,18 @@ check:
     * Create header for new ip packet by
     * modifying header of first packet;
     * dequeue and discard fragment reassembly header.
-    * Make header visible.
+    * Make header visible. 
+    * Ip_len is subtracted from header length to 
+    * not confuse in_cksum() later.
     */
-   ip->ip_len = htons((ip->ip_hl << 2) + next);
-   //ip->ip_src = fp->ipq_src;
-   //ip->ip_dst = fp->ipq_dst;
-   //q->mlen += ip->ip_hl << 2;
-   //q->head -= ip->ip_hl << 2;
+   //ip->ip_len = htons((ip->ip_hl << 2) + next);
+   ip->ip_len = htons(next);
    q->flags |= ~BUF_IP_MF;
 
    // update len of mbuf chain to reflect data part.
    p = q->next;
    while (p){
       hlen = GETIP(p)->ip_hl << 2;
-      DEBUG("mbuf chain: hlen=%d, mlen=%d", hlen, p->mlen);
       p->head += hlen;
       p->mlen -= hlen;
       p = p->next;
@@ -808,6 +806,7 @@ check:
    // remove head of reassemly list.
    usn_remove_ipq(fp);
    DEBUG("reassembly done, ip_len=%d(%d), mlen=%d", ip->ip_len, ntohs(ip->ip_len), q->mlen);
+   dump_chain(q,"frg");
    return q;
 
 dropfrag:
@@ -953,13 +952,14 @@ ours:
       hlen = pip->ip_hl << 2;
    }
    else 
-      pip->ip_len =  htons(ntohs(pip->ip_len) - hlen); // to be consistent for all ip packets.
+      // to be consistent for all ip packets.
+      pip->ip_len =  htons(ntohs(pip->ip_len) - hlen); 
 
    // 4. Demultiplexing
+   // Switch out to protocol's input routine
+   // to handle TCP, UDP, and ICMP
 
-   // Switch out to protocol's input routine.
    //ipstat.ips_delivered++;
-   // handle TCP, UDP, and ICMP
    DEBUG("protocol=%d, header_len=%d, ip_len=%d", pip->ip_p, hlen, ntohs(pip->ip_len));
 
    switch(pip->ip_p) {

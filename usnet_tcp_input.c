@@ -216,6 +216,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 			g_tcpstat.tcps_rcvshort++;
 			return;
 		}
+      dump_chain(m,"pullup");
 		ti = mtod(m, struct tcpiphdr *);
 	}
    /*
@@ -228,7 +229,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	ti->ti_x1 = 0;
 	ti->ti_len = (u_short)tlen;
 	HTONS(ti->ti_len);
-   DEBUG("tcp cksum");
+   DEBUG("pseudo-header, ti_len=%x(%x)", tlen, ti->ti_len);
    dump_chain(m,"tcp");
    ti->ti_sum = in_cksum(m, len);
 	if (ti->ti_sum) {
