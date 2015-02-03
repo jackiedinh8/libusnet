@@ -125,7 +125,7 @@ in_cksum(usn_mbuf_t *m, int len)
 			} else
 				sum += *w++;
 			ADDCARRY(sum);
-         DEBUG("*w=%d, sum=%d",*w,sum);
+         //DEBUG("*w=%d, sum=%d",*w,sum);
 		}
 		if (mlen == -1)
 			/*
@@ -639,6 +639,7 @@ ip_reass(usn_mbuf_t *m)
    // Look for queue of fragments
    // of this datagram. 
    // TODO: It is better to use hash functions
+   DEBUG("do reassembly");
    for (fp = g_ipq.next; fp != NULL; fp = fp->next) {
       if (ip->ip_id == fp->ipq_id &&
           ip->ip_src.s_addr == fp->ipq_src.s_addr &&
@@ -772,7 +773,8 @@ check:
     */
    q = fp->frags_list;
    ip = GETIP(q);
-   DEBUG("lask check, ip_len=%d, next=%d", ip->ip_len, next);
+   DEBUG("lask check, ip_len=%d, next=%d, mflags=%d", 
+         ip->ip_len, next, q->flags);
 
    if (next + (ip->ip_hl << 2) > IP_MAXPACKET) {
       // TODO: do stats
@@ -793,7 +795,7 @@ check:
     */
    //ip->ip_len = htons((ip->ip_hl << 2) + next);
    ip->ip_len = htons(next);
-   q->flags |= ~BUF_IP_MF;
+   q->flags &= ~BUF_IP_MF;
 
    // update len of mbuf chain to reflect data part.
    p = q->next;
@@ -940,19 +942,19 @@ ours:
    DEBUG("protocol=%d, ip_len=%d, ip_off=%d", 
            pip->ip_p, ntohs(pip->ip_len), pip->ip_off);
    if (ntohs(pip->ip_off) & ( IP_MF | IP_OFFMASK )) {
-      DEBUG("do reassembly");
       //ipstat.ips_fragments++;
       m = ip_reass(m); 
       if (m == 0)
          goto next;
+
       //ipstat.ips_reassembled++;
       pip  = GETIP(m);
-      dump_chain(m,"ip4");
+
       /* Get the header length of the reassembled packet */
       hlen = pip->ip_hl << 2;
    }
    else 
-      // to be consistent for all ip packets.
+      /* to be consistent for all ip packets. */
       pip->ip_len =  htons(ntohs(pip->ip_len) - hlen); 
 
    // 4. Demultiplexing
@@ -960,7 +962,8 @@ ours:
    // to handle TCP, UDP, and ICMP
 
    //ipstat.ips_delivered++;
-   DEBUG("protocol=%d, header_len=%d, ip_len=%d", pip->ip_p, hlen, ntohs(pip->ip_len));
+   DEBUG("protocol=%d, header_len=%d, ip_len=%d, mflags=%d", 
+         pip->ip_p, hlen, ntohs(pip->ip_len), m->flags);
 
    switch(pip->ip_p) {
       case IPPROTO_ICMP:

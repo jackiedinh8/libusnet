@@ -184,7 +184,7 @@ dump_chain(usn_mbuf_t *m, const char *prefix)
 {
    usn_mbuf_t *n = m;
    while (n) {
-      printf("mlen=%d\n", n->mlen);
+      printf("mlen=%d, mflags=%d\n", n->mlen, n->flags);
       dump_buffer((char*)n->head, n->mlen, prefix);
       printf("\n");
       n = n->next;

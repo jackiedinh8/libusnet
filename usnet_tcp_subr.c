@@ -114,7 +114,7 @@ tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
 	int tlen;
 	int win = 0;
 	struct route *ro = 0;
-
+   DEBUG("send reply back");
 	if (tp) {
 		win = sbspace(&tp->t_inpcb->inp_socket->so_rcv);
 		ro = &tp->t_inpcb->inp_route;

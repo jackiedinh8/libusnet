@@ -205,7 +205,6 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	int ts_present = 0;
 
 	g_tcpstat.tcps_rcvtotal++;
-
 	// Get IP and TCP header together in first mbuf.
 	// Note: IP leaves IP header in first mbuf.
 	ti = mtod(m, struct tcpiphdr *);
@@ -229,8 +228,6 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	ti->ti_x1 = 0;
 	ti->ti_len = (u_short)tlen;
 	HTONS(ti->ti_len);
-   DEBUG("pseudo-header, ti_len=%x(%x)", tlen, ti->ti_len);
-   dump_chain(m,"tcp");
    ti->ti_sum = in_cksum(m, len);
 	if (ti->ti_sum) {
 		g_tcpstat.tcps_rcvbadsum++;
@@ -479,7 +476,7 @@ findpcb:
 
 	// Drop TCP, IP headers and TCP options.
 	m->head += sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
-	m->mlen  -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
+	m->mlen -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 
 	// Calculate amount of space in receive window,
 	// and then do TCP input processing.
@@ -519,12 +516,12 @@ findpcb:
 		// RFC1122 4.2.3.10, p. 104: discard bcast/mcast SYN
 		// in_broadcast() should never return true on a received
 		// packet with M_BCAST not set.
-      // FIXME
+
 		//if (m->m_flags & (M_BCAST|M_MCAST) ||
 		//    IN_MULTICAST(ntohl(ti->ti_dst.s_addr)))
 		//	goto drop;
 
-		am = usn_get_mbuf(0, BUF_MSIZE, 0);	// XXX: FIXME
+		am = usn_get_mbuf(0, BUF_MSIZE, 0);	// XXX: the size!
 		if (am == NULL)
 			goto drop;
 		am->mlen = sizeof (struct usn_sockaddr_in);
@@ -568,7 +565,7 @@ findpcb:
 		dropsocket = 0;		// committed to socket
 		g_tcpstat.tcps_accepts++;
 		goto trimthenstep6;
-		}
+	}
 
 
 	// If the state is SYN_SENT:
@@ -1235,6 +1232,7 @@ dropwithreset:
 	if ((tiflags & TH_RST) || m->flags & (BUF_BCAST|BUF_MCAST) ||
 	    USN_MULTICAST(ntohl(ti->ti_dst.s_addr)))
 		goto drop;
+   
 	if (tiflags & TH_ACK)
 		tcp_respond(tp, ti, m, (tcp_seq)0, ti->ti_ack, TH_RST);
 	else {
