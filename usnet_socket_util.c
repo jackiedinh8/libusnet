@@ -187,13 +187,20 @@ sonewconn1(struct usn_socket *head, int connstatus)
    int    soqueue = connstatus ? 1 : 0;
    int    i;
 
-   if (head->so_qlen + head->so_q0len > 3 * head->so_qlimit / 2)
+   DEBUG("new socket, glen=%d, q0len=%d, qlimit=%d", 
+         head->so_qlen, head->so_q0len, head->so_qlimit); 
+   if (head->so_qlen + head->so_q0len > 3 * head->so_qlimit / 2) {
+      DEBUG("full queue, arg1=%d, arg2=%d", 
+            head->so_qlen + head->so_q0len, 3 * head->so_qlimit / 2);
       return ((struct usn_socket *)0);
+   }
 
    //MALLOC(so, struct socket *, sizeof(*so), M_SOCKET, M_DONTWAIT);
    so = (struct usn_socket*)usn_get_buf(0, sizeof(*so));
-   if (so == NULL) 
+   if (so == NULL) {
+      DEBUG("failed to allocate mem");
       return ((struct usn_socket *)0);
+   }
 
    bzero((caddr_t)so, sizeof(*so));
    so->so_domain = head->so_domain;
@@ -216,6 +223,7 @@ sonewconn1(struct usn_socket *head, int connstatus)
        (usn_mbuf_t *)0, (usn_mbuf_t *)0, (usn_mbuf_t *)0)) {
       soqremque(so, soqueue);
       usn_free_buf((u_char*)so);
+      DEBUG("failed to attach new socket");
       return ((struct usn_socket *)0);
    }
    if (connstatus) {
@@ -532,3 +540,44 @@ sbflush(struct sockbuf *sb)
    if (sb->sb_cc || sb->sb_mb)
       DEBUG("panic: sbflush 2");
 }
+
+void
+sorflush(struct usn_socket *so)
+{
+   struct sockbuf *sb = &so->so_rcv;
+   //struct protosw *pr = so->so_proto;
+   struct sockbuf asb;
+   //int s;
+
+   sb->sb_flags |= SB_NOINTR;
+   //sblock(sb, M_WAITOK);
+   //s = splimp();
+   socantrcvmore(so);
+   //sbunlock(sb);
+   asb = *sb;
+   bzero((caddr_t)sb, sizeof (*sb));
+   //splx(s);
+   // FIXME
+   //if (pr->pr_flags & PR_RIGHTS && pr->pr_domain->dom_dispose)
+   //   (*pr->pr_domain->dom_dispose)(asb.sb_mb);
+   sbrelease(&asb);
+}
+
+int
+sofree(struct usn_socket *so) 
+{
+
+   if (so->so_pcb || (so->so_state & USN_NOFDREF) == 0)
+      return -1;
+   if (so->so_head) {
+      if (!soqremque(so, 0) && !soqremque(so, 1))
+         DEBUG("panic: sofree dq");
+      so->so_head = 0; 
+   }
+   sbrelease(&so->so_snd);
+   sorflush(so);
+   usn_free_buf((u_char*)so);
+   return 0;
+}
+
+

@@ -346,11 +346,14 @@ findpcb:
 					g_tcpstat.tcps_badsyn++;
 					goto dropwithreset;
 				}
+            DEBUG("SYN is expected, tiflags=%d", tiflags);
 				goto drop;
 			}
 			so = sonewconn(so, 0);
-			if (so == 0)
+			if (so == 0) {
+            DEBUG("failed to create new connection, tiflags=%d", tiflags);
 				goto drop;
+         }
 
 			// Mark socket as temporary until we're
 			// committed to keeping it.  The code at

@@ -322,4 +322,7 @@ soabort( struct usn_socket *so);
 void
 sbflush(struct sockbuf *sb);
 
+int
+sofree(struct usn_socket *so);
+
 #endif /* USNET_SOCKET_UTIL_H_ */

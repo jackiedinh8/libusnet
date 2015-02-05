@@ -326,7 +326,7 @@ int in_pcbdetach (struct inpcb *inp)
    struct usn_socket *so = inp->inp_socket;
 
    so->so_pcb = 0;
-   //sofree(so);
+   sofree(so);
 
    if (inp->inp_options)
       (void)usn_free_mbuf(inp->inp_options);
