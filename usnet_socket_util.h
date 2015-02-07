@@ -292,6 +292,9 @@ sbdrop(struct sockbuf *sb, int len);
 void
 sowakeup(struct usn_socket *so, struct sockbuf *sb);
 
+int32
+soewakeup(struct usn_socket *so, struct sockbuf *sb);
+
 void
 soqinsque(struct usn_socket *head, struct usn_socket *so, int q);
 
@@ -324,5 +327,8 @@ sbflush(struct sockbuf *sb);
 
 int
 sofree(struct usn_socket *so);
+
+int32
+soclose(struct usn_socket *so);
 
 #endif /* USNET_SOCKET_UTIL_H_ */

@@ -431,7 +431,7 @@ findpcb:
 				acked = ti->ti_ack - tp->snd_una;
 				g_tcpstat.tcps_rcvackpack++;
 				g_tcpstat.tcps_rcvackbyte += acked;
-
+            DEBUG("drop so_snd buffer, len=%d", acked);
 				sbdrop(&so->so_snd, acked);
 
 				tp->snd_una = ti->ti_ack;
@@ -567,6 +567,7 @@ findpcb:
 		tcp_sendseqinit(tp);
 		tcp_rcvseqinit(tp);
 		tp->t_flags |= TF_ACKNOW;
+      DEBUG("change tcp state to TCPS_SYN_RECEIVED, state=%d", tp->t_state);
 		tp->t_state = TCPS_SYN_RECEIVED;
 		tp->t_timer[TCPT_KEEP] = TCPTV_KEEP_INIT;
 		dropsocket = 0;		// committed to socket
@@ -611,6 +612,7 @@ findpcb:
 		if (tiflags & TH_ACK /*&& SEQ_GT(tp->snd_una, tp->iss)*/) {
 			g_tcpstat.tcps_connects++;
 			soisconnected(so);
+         DEBUG("change tcp state to TCPS_ESTABLISHED, state=%d", tp->t_state);
 			tp->t_state = TCPS_ESTABLISHED;
 			// Do window scaling on this connection?
 			if ((tp->t_flags & (TF_RCVD_SCALE|TF_REQ_SCALE)) ==
@@ -624,8 +626,10 @@ findpcb:
 			// use its rtt as our initial srtt & rtt var.
 			if (tp->t_rtt)
 				tcp_xmit_timer(tp, tp->t_rtt);
-		} else
+		} else {
+         DEBUG("change tcp state to TCPS_SYN_RECEIVED, state=%d", tp->t_state);
 			tp->t_state = TCPS_SYN_RECEIVED;
+      }
 
 trimthenstep6:
 
@@ -830,6 +834,7 @@ trimthenstep6:
 	case TCPS_CLOSE_WAIT:
 		so->so_error = ECONNRESET;
 close:
+      DEBUG("change tcp state to TCPS_CLOSED, state=%d", tp->t_state);
 		tp->t_state = TCPS_CLOSED;
 		g_tcpstat.tcps_drops++;
 		tp = tcp_close(tp);
@@ -865,6 +870,7 @@ close:
 			goto dropwithreset;
 		g_tcpstat.tcps_connects++;
 		soisconnected(so);
+      DEBUG("change tcp state to TCPS_ESTABLISHED, state=%d", tp->t_state);
 		tp->t_state = TCPS_ESTABLISHED;
 		// Do window scaling?
 		if ((tp->t_flags & (TF_RCVD_SCALE|TF_REQ_SCALE)) ==
@@ -999,9 +1005,11 @@ close:
 
 		if (acked > so->so_snd.sb_cc) {
 			tp->snd_wnd -= so->so_snd.sb_cc;
+         DEBUG("drop all so_snd buffer, acked=%d, len=%d", acked, so->so_snd.sb_cc);
 			sbdrop(&so->so_snd, (int)so->so_snd.sb_cc);
 			ourfinisacked = 1;
 		} else {
+         DEBUG("drop all so_snd buffer, acked=%d, len=%d", acked, so->so_snd.sb_cc);
 			sbdrop(&so->so_snd, acked);
 			tp->snd_wnd -= acked;
 			ourfinisacked = 0;
@@ -1031,6 +1039,7 @@ close:
 					soisdisconnected(so);
 					tp->t_timer[TCPT_2MSL] = g_tcp_maxidle;
 				}
+            DEBUG("change tcp state to TCPS_FIN_WAIT_2, state=%d", tp->t_state);
 				tp->t_state = TCPS_FIN_WAIT_2;
 			}
 			break;
@@ -1041,6 +1050,7 @@ close:
 		// the segment.
 		case TCPS_CLOSING:
 			if (ourfinisacked) {
+            DEBUG("change tcp state to TCPS_TIME_WAIT, state=%d", tp->t_state);
 				tp->t_state = TCPS_TIME_WAIT;
 				tcp_canceltimers(tp);
 				tp->t_timer[TCPT_2MSL] = 2 * TCPTV_MSL;
@@ -1182,12 +1192,15 @@ dodata:							// XXX
 		// enter the CLOSE_WAIT state.
 		case TCPS_SYN_RECEIVED:
 		case TCPS_ESTABLISHED:
+         DEBUG("change tcp state to TCPS_CLOSE_WAIT, state=%d", tp->t_state);
 			tp->t_state = TCPS_CLOSE_WAIT;
+         soewakeup(so, 0);
 			break;
 
 		// If still in FIN_WAIT_1 STATE FIN has not been acked so
 		// enter the CLOSING state.
 		case TCPS_FIN_WAIT_1:
+         DEBUG("change tcp state to TCPS_CLOSING, state=%d", tp->t_state);
 			tp->t_state = TCPS_CLOSING;
 			break;
 
@@ -1195,6 +1208,7 @@ dodata:							// XXX
 		// starting the time-wait timer, turning off the other 
 		// standard timers.
 		case TCPS_FIN_WAIT_2:
+         DEBUG("change tcp state to TCPS_TIME_WAIT, state=%d", tp->t_state);
 			tp->t_state = TCPS_TIME_WAIT;
 			tcp_canceltimers(tp);
 			tp->t_timer[TCPT_2MSL] = 2 * TCPTV_MSL;

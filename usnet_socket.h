@@ -61,6 +61,9 @@ usnet_listen_socket(u_int32 fd, int32 flags,
       accept_handler_cb accept_cb, 
       error_handler_cb error_cb, void* arg);
 
+int32
+usnet_soclose(u_int32 fd);
+
 struct inpcb;
 
 int32
@@ -71,6 +74,9 @@ usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb);
 
 int32
 usnet_udpwakeup_socket(struct inpcb* pcb);
+
+int32
+usnet_ewakeup_socket(struct usn_socket *so, struct sockbuf *sb);
 
 // @return: 
 //   >= 0: length of available buffer.
@@ -88,6 +94,9 @@ usnet_write_sobuffer(u_int32 fd, usn_buf_t *buf);
 int32
 usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, 
       struct usn_sockaddr_in *addr);
+
+int32
+usnet_drain_sobuffer(u_int32 fd);
 
 int32
 usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len, 

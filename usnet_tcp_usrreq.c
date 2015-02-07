@@ -309,6 +309,7 @@ tcp_usrreq(struct usn_socket *so, int req,
     * routine for tracing's sake.
     */
    case PRU_SLOWTIMO:
+      DEBUG("pru_slowtimo");
       tp = tcp_timers(tp, (u_long)nam);
       req |= (u_long)nam << 8;      /* for debug's sake */
       break;
@@ -454,7 +455,7 @@ tcp_disconnect(struct tcpcb *tp)
 		sbflush(&so->so_rcv);
 		tp = tcp_usrclosed(tp);
 		if (tp)
-			(void) tcp_output(tp);
+			tcp_output(tp);
 	}
 	return (tp);
 }
@@ -470,8 +471,7 @@ tcp_disconnect(struct tcpcb *tp)
  * We can let the user exit from the close as soon as the FIN is acked.
  */
 struct tcpcb *
-tcp_usrclosed(tp)
-	register struct tcpcb *tp;
+tcp_usrclosed(struct tcpcb *tp)
 {
 
 	switch (tp->t_state) {
@@ -479,16 +479,19 @@ tcp_usrclosed(tp)
 	case TCPS_CLOSED:
 	case TCPS_LISTEN:
 	case TCPS_SYN_SENT:
+      DEBUG("change to TCPS_CLOSED");
 		tp->t_state = TCPS_CLOSED;
 		tp = tcp_close(tp);
 		break;
 
 	case TCPS_SYN_RECEIVED:
 	case TCPS_ESTABLISHED:
+      DEBUG("change to TCPS_ESTABLISHED");
 		tp->t_state = TCPS_FIN_WAIT_1;
 		break;
 
 	case TCPS_CLOSE_WAIT:
+      DEBUG("change to TCPS_LAST_ACK");
 		tp->t_state = TCPS_LAST_ACK;
 		break;
 	}

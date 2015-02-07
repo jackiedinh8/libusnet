@@ -564,7 +564,7 @@ usnet_get_sobuffer(u_int32 fd)
    buf = (usn_buf_t*)so->so_rcv.sb_mb;
 
    // FIXME: buffer management.
-   so->so_rcv.sb_mb = NULL;
+   //so->so_rcv.sb_mb = NULL;
 
    return buf;
 }
@@ -597,7 +597,10 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
    if ( pcb == NULL )
       return -3;
 
-   m = (usn_mbuf_t*) buf;
+   //m = (usn_mbuf_t*) buf;
+   m = (usn_mbuf_t*) usn_copy_data((usn_mbuf_t*)buf, 0, buf->len);
+   if ( m == NULL )
+      return -4; 
 
    if ( addr ) {
       nam = usn_get_mbuf(0, sizeof(struct usn_sockaddr_in), 0);
@@ -613,6 +616,29 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
    return ret;
 }
 
+int32
+usnet_drain_sobuffer(u_int32 fd)
+{
+   struct usn_socket *so = usnet_get_socket(fd);
+   usn_mbuf_t *m, *n;
+
+   if ( so == NULL )
+      return -1;
+
+   m = so->so_rcv.sb_mb;
+
+   while (m) {
+      n = m;
+      m = m->queue;
+      usn_free_mbuf_chain(n); 
+   }
+
+   so->so_rcv.sb_mb = 0;
+   so->so_rcv.sb_cc = 0;
+   so->so_rcv.sb_mbcnt = 0;
+
+   return 0;
+}
 int32
 usnet_writeto_sobuffer_old(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
 {
@@ -679,5 +705,54 @@ usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len,
    }
 
    return ret;
+}
+
+int32
+usnet_soclose(u_int32 fd)
+{
+   struct usn_socket *so = usnet_get_socket(fd);
+
+   if ( so == NULL )
+      return -1;
+
+   return soclose(so);
+}
+
+int32
+usnet_ewakeup_socket(struct usn_socket *so, struct sockbuf *sb)
+{
+   struct tcpcb *tp = 0;
+   struct inpcb *inp = 0;
+   DEBUG("handling event callbacks");
+
+   if (so == NULL) {
+      DEBUG("panic: null pointer");
+      return -1;
+   }
+
+   inp = (struct inpcb*)so->so_pcb;
+   if ( inp == NULL ) {
+      DEBUG("panic: null ip control block");
+      return -2;
+   }
+   tp = (struct tcpcb*)inp->inp_ppcb;
+
+   if ( tp == NULL ) {
+      DEBUG("panic: empty tcp control block");
+      return -3;
+   }
+
+   DEBUG("tcp info, tp_state=%hu, so_state=%hu", tp->t_state, so->so_state);
+
+   if ( so->so_appcb.error_cb ) {
+      // call it once.
+      DEBUG("event callback");
+      so->so_appcb.error_cb(so->so_fd, 1,so->so_appcb.arg);
+   }
+
+   // XXX: clean mbuf if needed.
+   //      buffer management.
+   return 0;
+
 }
 

@@ -319,6 +319,13 @@ sowakeup(struct usn_socket *so, struct sockbuf *sb)
 */
 }
 
+int32
+soewakeup(struct usn_socket *so, struct sockbuf *sb)
+{
+   DEBUG("event occurs");
+   return usnet_ewakeup_socket(so, sb);
+}
+
 void
 soqinsque(struct usn_socket *head, struct usn_socket *so, int q)
 {
@@ -580,4 +587,71 @@ sofree(struct usn_socket *so)
    return 0;
 }
 
+int32
+sodisconnect(struct usn_socket *so)
+{
+   int error;
 
+   if ((so->so_state & USN_ISCONNECTED) == 0) {
+      error = -1;//USN_ENOTCONN;
+      goto bad;
+   }
+   if (so->so_state & USN_ISDISCONNECTING) {
+      error = -2;//USN_EALREADY;
+      goto bad;
+   }
+   error = (*so->so_usrreq)(so, PRU_DISCONNECT,
+       (usn_mbuf_t *)0, (usn_mbuf_t *)0, (usn_mbuf_t *)0);
+bad:
+   return (error);
+}
+/*
+ * Close a socket on last file table reference removal.
+ * Initiate disconnect if connected.
+ * Free socket when disconnect complete.
+ */
+int32
+soclose(struct usn_socket *so)
+{
+   int error = 0;
+
+   if (so->so_options & SO_ACCEPTCONN) {
+      while (so->so_q0)
+         soabort(so->so_q0);
+      while (so->so_q)
+         soabort(so->so_q);
+   }
+   if (so->so_pcb == 0)
+      goto discard;
+   if (so->so_state & USN_ISCONNECTED) {
+      if ((so->so_state & USN_ISDISCONNECTING) == 0) {
+         error = sodisconnect(so);
+         if (error)
+            goto drop;
+      }
+      if (so->so_options & SO_LINGER) {
+         if ((so->so_state & USN_ISDISCONNECTING) &&
+             (so->so_state & USN_NBIO))
+            goto drop;
+         // FIXME: why sleep here?
+         //while (so->so_state & USN_ISCONNECTED)
+         //   if (error = tsleep((caddr_t)&so->so_timeo,
+         //       PSOCK | PCATCH, netcls, so->so_linger * hz))
+         //      break;
+      }
+   }
+drop:
+   if (so->so_pcb) {
+      int error2 =
+          (*so->so_usrreq)(so, PRU_DETACH,
+         (usn_mbuf_t *)0, (usn_mbuf_t *)0, (usn_mbuf_t *)0);
+      if (error == 0)
+         error = error2;
+   }
+discard:
+   if (so->so_state & USN_NOFDREF)
+      DEBUG("panic: NOFDREF");
+   so->so_state |= USN_NOFDREF;
+   sofree(so);
+   return (error);
+}

@@ -113,7 +113,7 @@ typedef void (*socket_handler_cb)(u_int32 fd, u_short flags, void* arg);
 typedef void (*read_handler_cb)(u_int32 fd, u_short flags, void* arg);
 typedef void (*write_handler_cb)(u_int32 fd, u_short flags, void* arg);
 typedef void (*accept_handler_cb)(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg);
-typedef void (*error_handler_cb)(int32 error, void* arg);
+typedef void (*error_handler_cb)(u_int32 fd, int32 error, void* arg);
 
 // common functionality
 int32
@@ -128,14 +128,17 @@ usnet_listen(u_int32 fd, int32 flags, accept_handler_cb func_cb, error_handler_c
 int32
 usnet_set_socket_cb(u_int32 fd, int32 flags, socket_handler_cb func_cb, void* arg);
 
-int 
+int32 
 usnet_connect();
 
-int 
-usnet_recv(int fd, u_char* buff, u_int len);
+int32
+usnet_close_socket(u_int32 fd);
 
-int 
-usnet_send(int fd, u_char* buff, u_int len);
+int32 
+usnet_recv(u_int32 fd, u_char* buff, u_int len);
+
+int32 
+usnet_send(u_int32 fd, u_char* buff, u_int len);
 
 int32
 usnet_read(u_int32 fd, u_char* buff, u_int len);
@@ -154,6 +157,9 @@ usnet_write_buffer(u_int fd, usn_buf_t *buf);
 
 int32
 usnet_writeto_buffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in* addr);
+
+int32
+usnet_drain_buffer(u_int32 fd);
 
 int 
 usnet_drain(int fd, size_t len);

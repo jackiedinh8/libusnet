@@ -377,6 +377,10 @@ usn_get_mbuflen(usn_mbuf_t *m)
    while (m) {
       len += m->mlen;
       m = m->next;
+      if ( m && m == m->next ) {
+         DEBUG("panic: a loop in mbuf");
+         break;
+      }
    }
    return len;
 }
@@ -388,6 +392,10 @@ usn_get_mbuf_actlen(usn_mbuf_t *m)
    while (m) {
       len += m->end - m->start;
       m = m->next;
+      if ( m && m == m->next ) {
+         DEBUG("panic: a loop in mbuf");
+         break;
+      }
    }
    return len;
 }

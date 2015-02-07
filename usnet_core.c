@@ -155,14 +155,14 @@ usnet_init_internal()
 
 
 // ip stack handling
-int 
-usnet_recv(int fd, u_char* buff, u_int len)
+int32
+usnet_recv(u_int32 fd, u_char* buff, u_int len)
 {
    return 0;
 }
 
-int 
-usnet_send(int fd, u_char* buff, u_int len)
+int32 
+usnet_send(u_int32 fd, u_char* buff, u_int len)
 {
    return 0;
 }
@@ -703,7 +703,7 @@ usnet_dispatch()
        //fds.events = POLLIN | POLLOUT;
        fds.events = POLLIN;
        fds.revents = 0;
-       ret = poll(&fds, 1, 3000);
+       ret = poll(&fds, 1, 5000);
        if (ret <= 0 ) {
           DEBUG("poll %s ev %x %x rx @%d:%d:%d ", 
             ret <= 0 ? "timeout" : "ok",
@@ -832,6 +832,12 @@ usnet_writeto_buffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in* addr)
 
 
 int32
+usnet_drain_buffer(u_int32 fd)
+{
+   return usnet_drain_sobuffer(fd);
+}
+
+int32
 usnet_udp_broadcast(u_int32 fd, u_char* buff, u_int32 len, 
        struct usn_sockaddr_in* addrs, u_int32 addr_num)
 {
@@ -848,4 +854,9 @@ usnet_set_callbacks(u_int32 fd,
    return 0;
 }
 
+int32
+usnet_close_socket(u_int32 fd) 
+{
+   return usnet_soclose(fd);
+}
 

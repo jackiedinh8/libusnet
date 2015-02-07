@@ -102,6 +102,7 @@ tcp_slowtimo()
 		if (tp == 0 || tp->t_state == TCPS_LISTEN)
 			continue;
 		for (i = 0; i < TCPT_NTIMERS; i++) {
+         DEBUG("fd=%x, timer[%lu]=%d", ip->inp_faddr.s_addr, i, tp->t_timer[i]);
 			if (tp->t_timer[i] && --tp->t_timer[i] == 0) {
 				tcp_usrreq(tp->t_inpcb->inp_socket,
 				    PRU_SLOWTIMO, (usn_mbuf_t *)0,

@@ -21,10 +21,16 @@ void read_handler(u_int32 fd, u_short flags, void* arg)
    }
    DEBUG("process data: fd=%d, len=%d \n", fd, buf->len);
    usnet_writeto_buffer(fd, buf, 0);
+   usnet_drain_buffer(fd);
 
    return;
 }
-
+void error_handler(u_int32 fd, int32 event, void* arg)
+{
+   if ( event == 1 )
+      DEBUG("CLOSE_WAIT");
+   usnet_close_socket(fd);
+}
 void accept_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
 {
    /* 
@@ -40,7 +46,7 @@ void accept_handler(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg)
    */
 
    DEBUG("new connection, fd=%d", fd);
-   usnet_set_socketcb(fd, 0, read_handler, 0, 0, 0);
+   usnet_set_socketcb(fd, 0, read_handler, 0, error_handler, 0);
 
    //DEBUG("new connection, fd=%d, addr_len=%d, ip=%x, port=%d, ip_=%x", 
    //         fd, len, inaddr->sin_addr.s_addr, inaddr->sin_port, inet_addr("10.10.10.1"));
