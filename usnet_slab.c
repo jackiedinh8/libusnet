@@ -40,6 +40,10 @@
 usn_slab_pool_t *g_slab_pool;
 usn_shm_t g_shm;
 
+u_int32 g_slab_alloc_nr;
+u_int32 g_slab_free_nr;
+u_int32 g_slab_alloc_size;
+
 static usn_slab_page_t *usn_slab_alloc_pages(usn_slab_pool_t *pool,
     usn_uint_t pages);
 static void usn_slab_free_pages(usn_slab_pool_t *pool, usn_slab_page_t *page,
@@ -69,6 +73,9 @@ usn_slab_init(usn_slab_pool_t *g_pool, usn_shm_t *shm)
     if ( shm->addr == NULL )
        return;
 
+    g_slab_alloc_nr = 0;
+    g_slab_free_nr = 0;
+    g_slab_alloc_size = 0;
     // init slab pool at the begining of the shared mem.
     pool = (usn_slab_pool_t *) shm->addr;
     pool->start = shm->addr;
@@ -151,9 +158,13 @@ usn_slab_alloc(usn_slab_pool_t *pool, size_t size)
     void  *p;
 
     //usn_shmtx_lock(&pool->mutex);
-
     p = usn_slab_alloc_locked(pool, size);
-
+    if ( p != NULL ) {
+       g_slab_alloc_nr++;
+       g_slab_alloc_size += size;
+       DEBUG("slab stats: alloc=%d, free=%d, size=%d, ptr=%p, len=%lu", 
+             g_slab_alloc_nr, g_slab_free_nr, g_slab_alloc_size, p, size);
+    }
     //usn_shmtx_unlock(&pool->mutex);
 
     return p;
@@ -439,7 +450,13 @@ void
 usn_slab_free(usn_slab_pool_t *pool, void *p)
 {
     //usn_shmtx_lock(&pool->mutex);
+
+    g_slab_free_nr++;
+    DEBUG("slab stats: alloc=%d, free=%d, size=%d, ptr=%p", 
+          g_slab_alloc_nr, g_slab_free_nr, g_slab_alloc_size, p);
+
     usn_slab_free_locked(pool, p);
+
 
     //usn_shmtx_unlock(&pool->mutex);
 }

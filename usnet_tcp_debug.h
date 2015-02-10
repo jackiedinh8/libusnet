@@ -68,5 +68,7 @@ void
 tcp_trace( short act, short ostate, struct tcpcb *tp, 
            struct tcpiphdr *ti, int req);
 
+void tcp_print(struct tcpiphdr *ti);
+
 #endif //_USNET_TCP_DEBUG_H_
 

@@ -207,9 +207,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	g_tcpstat.tcps_rcvtotal++;
 	// Get IP and TCP header together in first mbuf.
 	// Note: IP leaves IP header in first mbuf.
-#ifdef DUMP_PAYLOAD
-   dump_chain(m,"tcp");
-#endif
+
 	ti = mtod(m, struct tcpiphdr *);
 	if (iphlen > sizeof (usn_ip_t))
 		ip_stripoptions(m, (usn_mbuf_t *)0);
@@ -218,11 +216,13 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 			g_tcpstat.tcps_rcvshort++;
 			return;
 		}
-#ifdef DUMP_PAYLOAD
-      dump_chain(m,"pullup");
-#endif
 		ti = mtod(m, struct tcpiphdr *);
 	}
+
+#ifdef DUMP_PAYLOAD
+   dump_chain(m,"tcp");
+#endif
+
    /*
 	 * Checksum extended TCP header and data.
     */
@@ -282,11 +282,8 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	NTOHL(ti->ti_ack);
 	NTOHS(ti->ti_win);
 	NTOHS(ti->ti_urp);
-   DEBUG("tcp dump, seq=%u, ack=%u, win=%u, urg=%u", 
-            ti->ti_seq,
-            ti->ti_ack,
-            ti->ti_win,
-            ti->ti_urp);
+
+   tcp_print(ti);
 
 	// Locate pcb for segment.
 findpcb:
@@ -301,7 +298,6 @@ findpcb:
 			g_tcp_last_inpcb = inp;
 		++g_tcpstat.tcps_pcbcachemiss;
 	}
-
 
 	// If the state is CLOSED (i.e., TCB does not exist) then
 	// all data in the incoming segment is discarded.
@@ -324,14 +320,13 @@ findpcb:
 		goto drop;
 	
 	// Unscale the window into a 32-bit value. 
-   DEBUG("update window, tiflags=%x", tiflags);
 	if ((tiflags & TH_SYN) == 0)
 		tiwin = ti->ti_win << tp->snd_scale;
 	else
 		tiwin = ti->ti_win;
 
 	so = inp->inp_socket;
-   DEBUG("socket options, options=%x", so->so_options);
+   DEBUG("socket info, options=%x", so->so_options);
 
 	if (so->so_options & (SO_DEBUG|SO_ACCEPTCONN)) {
 		if (so->so_options & SO_DEBUG) {
@@ -431,11 +426,11 @@ findpcb:
 				acked = ti->ti_ack - tp->snd_una;
 				g_tcpstat.tcps_rcvackpack++;
 				g_tcpstat.tcps_rcvackbyte += acked;
-            DEBUG("drop so_snd buffer, len=%d", acked);
+            DEBUG("drop so_snd buffer, drop_bytes=%d, len=%d", acked, so->so_snd.sb_cc);
 				sbdrop(&so->so_snd, acked);
 
 				tp->snd_una = ti->ti_ack;
-				usn_free_mbuf_chain(m);
+				usn_free_cmbuf(m);
 
 				// If all outstanding data are acked, stop
 				// retransmit timer, otherwise restart timer
@@ -1005,11 +1000,11 @@ close:
 
 		if (acked > so->so_snd.sb_cc) {
 			tp->snd_wnd -= so->so_snd.sb_cc;
-         DEBUG("drop all so_snd buffer, acked=%d, len=%d", acked, so->so_snd.sb_cc);
+         DEBUG("drop all so_snd buffer, drop_bytes=%d, len=%d", so->so_snd.sb_cc, acked);
 			sbdrop(&so->so_snd, (int)so->so_snd.sb_cc);
 			ourfinisacked = 1;
 		} else {
-         DEBUG("drop all so_snd buffer, acked=%d, len=%d", acked, so->so_snd.sb_cc);
+         DEBUG("drop so_snd buffer, drop_bytes=%d, len=%d", acked, so->so_snd.sb_cc);
 			sbdrop(&so->so_snd, acked);
 			tp->snd_wnd -= acked;
 			ourfinisacked = 0;
@@ -1154,9 +1149,9 @@ step6:
 		if (SEQ_GT(tp->rcv_nxt, tp->rcv_up))
 			tp->rcv_up = tp->rcv_nxt;
 dodata:							// XXX
-   DEBUG("Handle data");
 #ifdef DUMP_PAYLOAD
-   dump_buffer((char*)m->head, m->mlen,"tcp");
+   DEBUG("Handle data");
+   dump_chain(m,"tcp");
 #endif
 
 	// Process the segment text, merging it into the TCP sequencing queue,
@@ -1167,14 +1162,13 @@ dodata:							// XXX
 	// connection then we just ignore the text.
 	if ((ti->ti_len || (tiflags&TH_FIN)) &&
 	    TCPS_HAVERCVDFIN(tp->t_state) == 0) {
-      DEBUG("tp->t_state=%hu", tp->t_state);
 		TCP_REASS(tp, ti, m, so, tiflags);
 		// Note the amount of data that peer has sent into
 		// our window, in order to estimate the sender's
 		// buffer size.
 		len = so->so_rcv.sb_hiwat - (tp->rcv_adv - tp->rcv_nxt);
 	} else {
-		usn_free_mbuf_chain(m);
+		usn_free_cmbuf(m);
 		tiflags &= ~TH_FIN;
 	}
 
@@ -1235,7 +1229,7 @@ dropafterack:
 	// sequence space, where the ACK reflects our state.
 	if (tiflags & TH_RST)
 		goto drop;
-	usn_free_mbuf_chain(m);
+	usn_free_cmbuf(m);
 	tp->t_flags |= TF_ACKNOW;
 	tcp_output(tp);
 	return;
@@ -1268,7 +1262,7 @@ drop:
 	// Drop space held by incoming segment and return.
 	if (tp && (tp->t_inpcb->inp_socket->so_options & SO_DEBUG))
 		tcp_trace(TA_DROP, ostate, tp, &g_tcp_saveti, 0);
-	usn_free_mbuf_chain(m);
+	usn_free_cmbuf(m);
 	// destroy temporarily created socket
 	if (dropsocket)
 		soabort(so);
@@ -1493,10 +1487,8 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 	 // to scaled multiples of the slow timeout timer.
 
 	if (tp->t_srtt == 0 && (rtt = rt->rt_rmx.rmx_rtt)) {
-
-		 // XXX the lock bit for MTU indicates that the value
-		 // is also a minimum value; this is subject to time.
-
+		// XXX the lock bit for MTU indicates that the value
+		// is also a minimum value; this is subject to time.
 		if (rt->rt_rmx.rmx_locks & RTV_RTT)
 			tp->t_rttmin = rtt / (RTM_RTTUNIT / PR_SLOWHZ);
 		tp->t_srtt = rtt / (RTM_RTTUNIT / (PR_SLOWHZ * TCP_RTT_SCALE));
@@ -1512,8 +1504,7 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 		    tp->t_rttmin, TCPTV_REXMTMAX);
 	}
 
-	 // if there's an mtu associated with the route, use it
-
+	// if there's an mtu associated with the route, use it
 	if (rt->rt_rmx.rmx_mtu)
 		mss = rt->rt_rmx.rmx_mtu - sizeof(struct tcpiphdr);
 	else

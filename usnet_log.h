@@ -4,16 +4,12 @@
 #include <stdio.h>
 #include <sys/time.h>
 
-#define NDEBUG(_fmt, ...)     do {} while(0)
-
 //#define DUMP_PAYLOAD
+
 //#define NON_DEBUG
 #ifdef NON_DEBUG
-
 #define DEBUG(_fmt, ...)     do {} while(0)
-
 #else
-
 #define DEBUG(_fmt, ...)                \
    do {                    \
       struct timeval _t0;           \
@@ -22,11 +18,12 @@
           (int)(_t0.tv_sec % 1000), (int)_t0.tv_usec, \
           __FUNCTION__, __LINE__, ##__VA_ARGS__);  \
         } while (0)
-
 #endif
 
-//#define ERROR(_fmt, ...)     do {} while(0)
+#define INFO(_fmt, ...)     do {} while(0)
+#define WARN(_fmt, ...)     do {} while(0)
 
+//#define ERROR(_fmt, ...)     do {} while(0)
 #define ERROR(_fmt, ...)                \
    do {                    \
       struct timeval _t0;           \
@@ -37,5 +34,6 @@
         } while (0)
 
 
+#define FATAL(_fmt, ...)     do {} while(0)
 
 #endif //!_USNET_LOG_H_

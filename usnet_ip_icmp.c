@@ -34,9 +34,10 @@
  */
 
 
-#include <netinet/in.h>
-#include <sys/time.h>
+//#include <netinet/in.h>
+//#include <sys/time.h>
 
+#include "usnet_ip.h"
 #include "usnet_ip_icmp.h"
 #include "usnet_if.h"
 #include "usnet_route.h"
@@ -52,11 +53,8 @@
  * host table maintenance routines.
  */
 
-int	icmpmaskrepl = 0;
-#define ICMPPRINTFS
-#ifdef ICMPPRINTFS
-int	icmpprintfs = 1;
-#endif
+int	g_icmpmaskrepl = 0;
+int	g_icmpprintfs = 1;
 
 extern	struct protosw inetsw[];
 
@@ -78,7 +76,7 @@ icmp_error(usn_mbuf_t *n, int type, int code, u_long dest, struct ifnet *destifp
    DEBUG("not implemented yet"); return;
 
 #ifdef ICMPPRINTFS
-	if (icmpprintfs)
+	if (g_icmpprintfs)
 		DEBUG("icmp_error(%p, %d, %d)\n", oip, type, code);
 #endif
 	if (type != ICMP_REDIRECT)
@@ -167,10 +165,67 @@ freeit:
 	usn_free_mbuf(n);
 }
 
-static struct usn_sockaddr_in icmpsrc = { sizeof (struct usn_sockaddr_in), AF_INET };
-static struct usn_sockaddr_in icmpdst = { sizeof (struct usn_sockaddr_in), AF_INET };
-static struct usn_sockaddr_in icmpgw = { sizeof (struct usn_sockaddr_in), AF_INET };
-struct usn_sockaddr_in icmpmask = { 8, 0 };
+static struct usn_sockaddr_in g_icmpsrc = { sizeof (struct usn_sockaddr_in), AF_INET };
+static struct usn_sockaddr_in g_icmpdst = { sizeof (struct usn_sockaddr_in), AF_INET };
+static struct usn_sockaddr_in g_icmpgw = { sizeof (struct usn_sockaddr_in), AF_INET };
+struct usn_sockaddr_in g_icmpmask = { 8, 0 };
+
+struct usn_sockaddr_in g_ripsrc = { sizeof(g_ripsrc), AF_INET };
+/*
+ * Setup generic address and protocol structures
+ * for raw_input routine, then pass them along with
+ * mbuf chain.
+ */
+void
+rip_input(usn_mbuf_t *m)
+{
+   DEBUG("not implemented yet");
+   MFREE(m);
+   return;
+/*
+   usn_ip_t *ip = mtod(m, usn_ip_t *); 
+   struct inpcb *inp;
+   struct usn_socket *last = 0;
+
+   ripsrc.sin_addr = ip->ip_src;
+   for (inp = rawinpcb.inp_next; inp != &rawinpcb; inp = inp->inp_next) {
+      if (inp->inp_ip.ip_p && inp->inp_ip.ip_p != ip->ip_p)
+         continue;
+      if (inp->inp_laddr.s_addr &&
+          inp->inp_laddr.s_addr != ip->ip_dst.s_addr)
+         continue;
+      if (inp->inp_faddr.s_addr &&
+          inp->inp_faddr.s_addr != ip->ip_src.s_addr)
+         continue;
+      if (last) {
+         usn_mbuf_t *n; 
+         if (n = m_copy(m, 0, (int)M_COPYALL)) {
+            if (sbappendaddr(&last->so_rcv,
+                (struct usn_sockaddr *)&ripsrc, n,
+                (usn_mbuf_t *)0) == 0)
+               // should notify about lost packet
+               MFREE(n);
+            else
+               sorwakeup(last);
+         }   
+      }   
+      last = inp->inp_socket;
+   }   
+   if (last) {
+      if (sbappendaddr(&last->so_rcv, (struct sockaddr *)&ripsrc,
+          m, (usn_mbuf_t *)0) == 0)
+         MFREE(m); 
+      else
+         sorwakeup(last);
+   } else {
+      MFREE(m);
+      //ipstat.ips_noproto++;
+      //ipstat.ips_delivered--;
+   }  
+*/
+}  
+
+
 
 /*
  * Process a received ICMP message.
@@ -188,19 +243,14 @@ icmp_input(usn_mbuf_t *m,int hlen)
 	u_int             i;
 	int               code;
 
-   //(void)ctlfunc; (void)ip_protox;
-
+#ifdef DUMP_PAYLOAD
 	DEBUG("icmp_input: dump info: ptr=%p, len=%d\n", m->head, m->mlen);
-   //dump_payload_only((char*)m->head, m->mlen);
-
-   icmpprintfs = 1;
-   
-#ifdef ICMPPRINTFS
-	if (icmpprintfs)
-		DEBUG("icmp packet from %x to %x, icmplen=%d\n",
-			ip->ip_src.s_addr, ip->ip_dst.s_addr,
-			icmplen);
+   dump_buffer((char*)m->head, m->mlen, "icmp");
 #endif
+
+	if (g_icmpprintfs)
+		DEBUG("icmp packet from %x to %x, icmplen=%d\n",
+			ip->ip_src.s_addr, ip->ip_dst.s_addr, icmplen);
 
 	// Locate icmp structure in mbuf, and check
 	// that not corrupted and of at least minimum length.
@@ -214,7 +264,7 @@ icmp_input(usn_mbuf_t *m,int hlen)
 	if ( m->mlen < i &&
         (m = m_pullup(m, i)) == 0)  {
 		//icmpstat.icps_tooshort++;
-      DEBUG("rearrange buffer");
+      DEBUG("warn: mbuf mem failed of %d continuous bytes", i);
 		return;
 	}
 
@@ -231,15 +281,10 @@ icmp_input(usn_mbuf_t *m,int hlen)
 	m->head -= hlen;
 	m->mlen += hlen;
 
-
-#ifdef ICMPPRINTFS
 	// Message type specific processing.
-	if (icmpprintfs)
+	if (g_icmpprintfs)
 		DEBUG("icmp_input, type %d code %d\n", icp->icmp_type,
 		    icp->icmp_code);
-	//DEBUG("icmp_input: (fine) dump info: ptr=%p, len=%d\n", m->head, m->mlen);
-   //dump_payload_only((char*)m->head, m->mlen);
-#endif
 
 	if (icp->icmp_type > ICMP_MAXTYPE)
 		goto raw;
@@ -303,11 +348,9 @@ icmp_input(usn_mbuf_t *m,int hlen)
 			//icmpstat.icps_badlen++;
 			goto freeit;
 		}
-#ifdef ICMPPRINTFS
-		if (icmpprintfs)
+		if (g_icmpprintfs)
 			DEBUG("deliver to protocol %d\n", ntohs(icp->icmp_ip.ip_p));
-#endif
-		icmpsrc.sin_addr = icp->icmp_ip.ip_dst;
+		g_icmpsrc.sin_addr = icp->icmp_ip.ip_dst;
 		//if (ctlfunc = inetsw[ip_protox[icp->icmp_ip.ip_p]].pr_ctlinput)
 		//	(*ctlfunc)(code, (struct sockaddr *)&icmpsrc,
 		//	    &icp->icmp_ip);
@@ -333,7 +376,7 @@ icmp_input(usn_mbuf_t *m,int hlen)
 		
 	case ICMP_MASKREQ:
 #define	satosin(sa)	((struct usn_sockaddr_in *)(sa))
-		if (icmpmaskrepl == 0)
+		if (g_icmpmaskrepl == 0)
 			break;
 		// We are not able to respond with all ones broadcast
 		// unless we receive it over a point-to-point interface.
@@ -341,16 +384,16 @@ icmp_input(usn_mbuf_t *m,int hlen)
 			break;
 		switch (ip->ip_dst.s_addr) {
 
-		case INADDR_BROADCAST:
-		case INADDR_ANY:
-			icmpdst.sin_addr = ip->ip_src;
+		case USN_INADDR_BROADCAST:
+		case USN_INADDR_ANY:
+			g_icmpdst.sin_addr = ip->ip_src;
 			break;
 
 		default:
-			icmpdst.sin_addr = ip->ip_dst;
+			g_icmpdst.sin_addr = ip->ip_dst;
 		}
 		ia = (struct in_ifaddr *)ifaof_ifpforaddr(
-			    (struct usn_sockaddr *)&icmpdst, NULL);
+			    (struct usn_sockaddr *)&g_icmpdst, NULL);
 			    //(struct sockaddr *)&icmpdst, m->m_pkthdr.rcvif);
 		if (ia == 0)
 			break;
@@ -383,19 +426,17 @@ reflect:
 		// tables.  The message is also handed to anyone
 		// listening on a raw socket (e.g. the routing
 		// daemon for use in updating its tables).
-		icmpgw.sin_addr = ip->ip_src;
-		icmpdst.sin_addr = icp->icmp_gwaddr;
-#ifdef	ICMPPRINTFS
-		if (icmpprintfs)
+		g_icmpgw.sin_addr = ip->ip_src;
+		g_icmpdst.sin_addr = icp->icmp_gwaddr;
+		if (g_icmpprintfs)
 			DEBUG("redirect dst %x to %x\n", icp->icmp_ip.ip_dst.s_addr,
 				icp->icmp_gwaddr.s_addr);
-#endif
-		icmpsrc.sin_addr = icp->icmp_ip.ip_dst;
-		rtredirect((struct usn_sockaddr *)&icmpsrc,
-		           (struct usn_sockaddr *)&icmpdst,
+		g_icmpsrc.sin_addr = icp->icmp_ip.ip_dst;
+		rtredirect((struct usn_sockaddr *)&g_icmpsrc,
+		           (struct usn_sockaddr *)&g_icmpdst,
          		  (struct usn_sockaddr *)NULL, 
                  RTF_GATEWAY | RTF_HOST,
-         		  (struct usn_sockaddr *)&icmpgw, 
+         		  (struct usn_sockaddr *)&g_icmpgw, 
                  (struct rtentry **)NULL);
 
 		//pfctlinput(PRC_REDIRECT_HOST, (struct usn_sockaddr *)&icmpsrc);
@@ -414,12 +455,12 @@ reflect:
 	}
 
 raw:
-	//rip_input(m);
+   rip_input(m);
 	return;
 
 freeit:
-	usn_free_mbuf(m);
-   
+	MFREE(m);
+   return;   
 }
 
 /*
@@ -434,15 +475,17 @@ icmp_reflect(usn_mbuf_t *m)
 	usn_mbuf_t           *opts = 0, *ip_srcroute();
 	int optlen = (ip->ip_hl << 2) - sizeof(usn_ip_t);
 
+#ifdef DUMP_PAYLOAD
 	DEBUG("icmp_reflect: dump info: ptr=%p, len=%d, optlen=%d", 
          m->head, m->mlen, optlen);
-   //dump_payload_only((char*)m->head, m->mlen);
+   dump_buffer((char*)m->head, m->mlen, "icmp");
+#endif
 
 	if (!in_canforward(ip->ip_src) &&
 	    ((ntohl(ip->ip_src.s_addr) & USN_IN_CLASSA_NET) !=
 	     (USN_IN_LOOPBACKNET << USN_IN_CLASSA_NSHIFT))) {
       DEBUG("drop icmp packet, ip=%d", ntohl(ip->ip_src.s_addr) );
-		usn_free_mbuf(m);	// Bad return address
+		MFREE(m);
 		goto done;	// Ip_output() will check for broadcast 
 	}
 	t = ip->ip_dst;
@@ -459,10 +502,10 @@ icmp_reflect(usn_mbuf_t *m)
 		    t.s_addr == satosin(&ia->ia_broadaddr)->sin_addr.s_addr)
 			break;
 	}
-	icmpdst.sin_addr = t;
+	g_icmpdst.sin_addr = t;
 	if (ia == (struct in_ifaddr *)0)
 		ia = (struct in_ifaddr *)ifaof_ifpforaddr(
-			(struct usn_sockaddr *)&icmpdst, 0);//m->m_pkthdr.rcvif);
+			(struct usn_sockaddr *)&g_icmpdst, 0);//m->m_pkthdr.rcvif);
 
 	// The following happens if the packet was not addressed to us,
 	// and was received on an interface with no IP address.
@@ -489,10 +532,8 @@ icmp_reflect(usn_mbuf_t *m)
 			((struct usn_in_addr *)(opts->head))->s_addr = 0;
 		}
 		if (opts) {
-#ifdef ICMPPRINTFS
-          if (icmpprintfs)
+          if (g_icmpprintfs)
 	          DEBUG("icmp_reflect optlen %d rt %d => ", optlen, opts->mlen);
-#endif
 		    for (cnt = optlen; cnt > 0; cnt -= len, cp += len) {
 			    opt = cp[IPOPT_OPTVAL];
 			    if (opt == IPOPT_EOL)
@@ -521,19 +562,14 @@ icmp_reflect(usn_mbuf_t *m)
 				    opts->mlen++;
 			    }
 		    }
-#ifdef ICMPPRINTFS
-		    if (icmpprintfs)
+		    if (g_icmpprintfs)
 			    printf("%d\n", opts->mlen);
-#endif
 		}
 		// Now strip out original options by copying rest of first
 		// mbuf's data back, and adjust the IP length.
 		ip->ip_len =  htons(ntohs(ip->ip_len) - optlen);
 		ip->ip_hl = sizeof(usn_ip_t) >> 2;
 		m->mlen -= optlen;
-
-		//if (m->flags & M_PKTHDR)
-			//m->m_pkthdr.len -= optlen;
 
 		optlen += sizeof(usn_ip_t);
       // m->mlen have right len???
@@ -543,9 +579,8 @@ icmp_reflect(usn_mbuf_t *m)
 	m->flags &= ~(BUF_BCAST|BUF_MCAST);
 	icmp_output(m, opts);
 done:
-	if (opts)
-		usn_free_mbuf(opts);
-
+   MFREE(opts);
+   return;
 }
 
 /*
@@ -559,13 +594,14 @@ icmp_output(usn_mbuf_t *m, usn_mbuf_t *opts)
 	int          hlen;
 	struct icmp *icp;
 
+#ifdef DUMP_PAYLOAD
 	DEBUG("icmp_output: dump info: ptr=%p, len=%d\n", m->head, m->mlen);
-   //dump_payload_only((char*)m->head, m->mlen);
+   dump_chain(m, "icmp");
+#endif
 
 	hlen = ip->ip_hl << 2;
 	m->head += hlen;
 	m->mlen -= hlen;
-
 
 	icp = (struct icmp *)m->head;
 	icp->icmp_cksum = 0;
@@ -577,12 +613,12 @@ icmp_output(usn_mbuf_t *m, usn_mbuf_t *opts)
 	m->head -= hlen;
 	m->mlen += hlen;
 
-#ifdef ICMPPRINTFS
-	if (icmpprintfs)
+	if (g_icmpprintfs)
 		DEBUG("icmp_send dst %x src %x\n", ip->ip_dst.s_addr, ip->ip_src.s_addr);
-#endif
+
    ip->ip_len = ntohs(ip->ip_len);
 	ipv4_output(m, opts, NULL, 0);
+   return;
 }
 
 u_long

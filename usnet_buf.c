@@ -64,7 +64,7 @@ usn_free_mbuf(usn_mbuf_t *m)
 }
 
 void
-usn_free_mbuf_chain(usn_mbuf_t *m)
+usn_free_cmbuf(usn_mbuf_t *m)
 {
    usn_mbuf_t *n, *t;
 
@@ -77,7 +77,22 @@ usn_free_mbuf_chain(usn_mbuf_t *m)
       usn_free_mbuf(t);
    }
 
-   m = NULL;
+   return;
+}
+
+void 
+usn_free_qmbuf(usn_mbuf_t *m)
+{
+   usn_mbuf_t *n, *t;
+   if ( m == NULL )
+      return;
+
+   n = m;
+   while (n) {
+      t = n; n = n->queue;
+      usn_free_cmbuf(t);
+   }
+
    return;
 }
 
@@ -272,7 +287,7 @@ m_pullup(usn_mbuf_t *n, int len)
          n->head += cnt;
       else {
          usn_mbuf_t *t;
-         MFREE(n, t);
+         MFREE_FIRST(n, t);
          n = t;
       }
    } while ( len > 0 && n );
@@ -284,11 +299,12 @@ m_pullup(usn_mbuf_t *n, int len)
    m->next = n;
    return m;
 bad:
-   usn_free_mbuf_chain(n);
+   MFREE(n);
    return NULL;
 }
 
-// create a new mbuf and copy len of bytes from m.
+// create a new mbuf and copy len of bytes from m,
+//  begining at off0.
 usn_mbuf_t* 
 usn_copy_data(usn_mbuf_t *m, int off0, int len)
 {

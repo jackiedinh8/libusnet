@@ -487,9 +487,10 @@ usnet_udpwakeup_socket(struct inpcb* inp)
    n = m->queue;
    if ( m->flags & BUF_ADDR ) {
       maddr = m;
-      m = m->next;
       memcpy(&addr, maddr->head, mtod(maddr, struct usn_sockaddr*)->sa_len);
-      usn_free_mbuf(maddr);
+      //usn_free_mbuf(maddr);
+      //m = m->next;
+      MFREE_FIRST(maddr, m);
    }
    if (m == NULL) {
       sb->sb_mb = n;
@@ -513,7 +514,7 @@ usnet_udpwakeup_socket(struct inpcb* inp)
 
    if ( (m->flags & BUF_DATA) == 0) {
       DEBUG("no data found");
-      return 0;
+      goto out;
    }
         
    if ( so->so_options & SO_ACCEPTCONN ) {
@@ -523,12 +524,9 @@ usnet_udpwakeup_socket(struct inpcb* inp)
             8/*len of sockadrr_in*/, so->so_appcb.arg);
    }
 
-   if (opts)
-      usn_free_mbuf(opts);
-
-   if (m)
-      usn_free_mbuf(m);
-
+out:
+   MFREE(opts);
+   MFREE(m);
    return 0;
 }
 
@@ -610,9 +608,7 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
    }
    ret = so->so_usrreq(so, PRU_SEND, m, nam, 0);
 
-   if ( nam )
-      usn_free_mbuf(nam);
-
+   MFREE(nam);
    return ret;
 }
 
@@ -630,7 +626,7 @@ usnet_drain_sobuffer(u_int32 fd)
    while (m) {
       n = m;
       m = m->queue;
-      usn_free_mbuf_chain(n); 
+      usn_free_cmbuf(n); 
    }
 
    so->so_rcv.sb_mb = 0;

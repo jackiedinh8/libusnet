@@ -639,7 +639,7 @@ ip_reass(usn_mbuf_t *m)
    // Look for queue of fragments
    // of this datagram. 
    // TODO: It is better to use hash functions
-   DEBUG("do reassembly");
+   DEBUG("do reassembly, ptr=%p, refs=%d",m, m->refs);
    for (fp = g_ipq.next; fp != NULL; fp = fp->next) {
       if (ip->ip_id == fp->ipq_id &&
           ip->ip_src.s_addr == fp->ipq_src.s_addr &&
@@ -813,6 +813,7 @@ check:
 
 dropfrag:
    //ipstat.ips_fragdropped++;
+   DEBUG("free mbuf, ptr=%p", m);
    usn_free_mbuf(m);
 done:
    return (0);
@@ -927,7 +928,8 @@ ipv4_input(usn_mbuf_t* m)
    // Not for us; forward if possible and desirable.
    if (g_ipforwarding == 0) {
       //ipstat.ips_cantforward++;
-      usn_free_mbuf(m);
+      DEBUG("drop packet, addr=%x", pip->ip_dst.s_addr);
+      MFREE(m);
    } else
       ip_forward(m, 0); //never called.
 
@@ -982,6 +984,7 @@ ours:
    goto next;
 
 bad:
+   DEBUG("free mbuf, ptr=%p", m);
    usn_free_mbuf(m);
 
 next:

@@ -63,8 +63,13 @@ tcp_output(struct tcpcb *tp)
 	int idle, sendalot;
 	u_short mss;
 
+#ifdef DUMP_PAYLOAD
    DEBUG("tcp_output");
-   //memset(opt, 0, MAX_TCPOPTLEN);
+   dump_chain(m, "tcp");
+#endif
+
+   memset(opt, 0, MAX_TCPOPTLEN);
+
 	// Determine length of data that should be transmitted,
 	// and flags that will be used.
 	// If there is some data or critical controls (SYN, RST)
@@ -166,7 +171,6 @@ again:
 	// max size segments, or at least 50% of the maximum possible
 	// window, then want to send a window update to peer.
 	if (win > 0) {
-
 		// "adv" is the amount we can increase the window,
 		// taking into account that we are limited by
 		// TCP_MAXWIN << tp->rcv_scale.
@@ -273,7 +277,6 @@ send:
 
  	hdrlen += optlen;
  
-
 	// Adjust data length if insertion of options will
 	// bump the packet length beyond the t_maxseg length.
 	if (len > tp->t_maxseg - optlen) {
@@ -282,12 +285,8 @@ send:
 		flags &= ~TH_FIN;
 	 }
 
-
-#ifdef DIAGNOSTIC
- 	if (max_linkhdr + hdrlen > BUF_MSIZE)
+ 	if (g_max_linkhdr + hdrlen > BUF_MSIZE)
 		DEBUG("panic: tcphdr too big");
-#endif
-
 
 	// Grab a header mbuf, attaching a copy of data to
 	// be transmitted, and initialize the header from
@@ -344,7 +343,6 @@ send:
 		else
 			g_tcpstat.tcps_sndwinup++;
 
-		//MGETHDR(m, M_DONTWAIT, MT_HEADER);
       m = (usn_mbuf_t *) usn_get_mbuf(0, BUF_MSIZE, 0);
 		if (m == NULL) {
 			error = ENOBUFS;
@@ -477,13 +475,14 @@ send:
 
 	//error = ipv4_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 	//    so->so_options & SO_DONTROUTE, 0);
-   DEBUG("call ipv4_output");
+
 #ifdef DUMP_PAYLOAD
-   dump_buffer((char*)m->head,m->mlen, "tcp");
+   DEBUG("call ipv4_output");
+   dump_chain(m, "tcp");
 #endif
+
 	error = ipv4_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 	    so->so_options & SO_DONTROUTE);
-
 
 	if (error) {
       out:

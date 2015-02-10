@@ -139,3 +139,13 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 	    tp->snd_wl1, tp->snd_wl2, tp->snd_wnd);
 #endif /* TCPDEBUG */
 }
+
+void tcp_print(struct tcpiphdr *ti)
+{
+   DEBUG("tcp info, seq=%u, ack=%u, win=%u, urg=%u", 
+            ti->ti_seq,
+            ti->ti_ack,
+            ti->ti_win,
+            ti->ti_urp);
+}
+

@@ -98,7 +98,10 @@ void
 usn_free_mbuf(usn_mbuf_t *m);
 
 void
-usn_free_mbuf_chain(usn_mbuf_t *m);
+usn_free_cmbuf(usn_mbuf_t *m);
+
+void 
+usn_free_qmbuf(usn_mbuf_t *m);
 
 void* 
 usn_create_pool(int size);
@@ -126,10 +129,18 @@ usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp);
                  usn_copy_mbuf(m, size, m->mlen, (caddr_t)n->head);\
               }\
            }
-#define MFREE(m, nn)\
+#define MFREE_FIRST(m, nn)\
            { (nn) = (m)->next; \
              usn_free_mbuf(m); }
 
+#define MDEBUG(m) { if (m) DEBUG("free cmbuf, ptr=%p",m); }
+#define MFREE(m)\
+     { MDEBUG(m);\
+       usn_free_cmbuf(m); }
+
+#define MFREEQ(m)\
+     { MDEBUG(m);\
+       usn_free_qmbuf(m); }
 void
 m_adj( usn_mbuf_t *mp, int req_len);
 

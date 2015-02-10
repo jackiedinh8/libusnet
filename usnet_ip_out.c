@@ -42,6 +42,7 @@
 #include "usnet_if.h"
 #include "usnet_eth.h"
 #include "usnet_in_pcb.h"
+#include "usnet_tcp.h"
 
 
 /*
@@ -53,7 +54,7 @@ static usn_mbuf_t *
 ip_insertoptions( usn_mbuf_t *m, usn_mbuf_t *opt, int *phlen)
 {
    struct ipoption *p = mtod(opt, struct ipoption *);
-   //usn_mbuf_t *n;
+   usn_mbuf_t *n;
    usn_ip_t   *ip = mtod(m, usn_ip_t *);
    unsigned optlen;
 
@@ -64,36 +65,70 @@ ip_insertoptions( usn_mbuf_t *m, usn_mbuf_t *opt, int *phlen)
    if (p->ipopt_dst.s_addr)
       ip->ip_dst = p->ipopt_dst;
 
-   // FIXME: review it.
-/*
-   if (m->flags & M_EXT || m->m_data - optlen < m->m_pktdat) {
-      MGETHDR(n, M_DONTWAIT, MT_HEADER);
+   if (m->head - optlen < m->start) {
+      n = usn_get_mbuf(0, MSIZE, 0);
       if (n == 0)
          return (m);
-      n->m_pkthdr.len = m->m_pkthdr.len + optlen;
-      m->m_len -= sizeof(struct ip);
-      m->m_data += sizeof(struct ip);
-      n->m_next = m;
+      m->mlen -= sizeof(usn_ip_t);
+      m->head += sizeof(usn_ip_t);
+      n->next = m;
       m = n;
-      m->m_len = optlen + sizeof(struct ip);
-      m->m_data += max_linkhdr;
-      bcopy((caddr_t)ip, mtod(m, caddr_t), sizeof(struct ip));
+      m->mlen = optlen + sizeof(usn_ip_t);
+      m->head += g_max_linkhdr;
+      bcopy((caddr_t)ip, mtod(m, caddr_t), sizeof(usn_ip_t));
    } else {
-      m->m_data -= optlen;
-      m->m_len += optlen;
-      m->m_pkthdr.len += optlen;
-      ovbcopy((caddr_t)ip, mtod(m, caddr_t), sizeof(struct ip));
+      m->head -= optlen;
+      m->mlen += optlen;
+      bcopy((caddr_t)ip, mtod(m, caddr_t), sizeof(usn_ip_t));
    }
-*/
+
    ip = mtod(m, usn_ip_t *);
    bcopy((caddr_t)p->ipopt_list, (caddr_t)(ip + 1), (unsigned)optlen);
    *phlen = sizeof(usn_ip_t) + optlen;
+   // XXX: convert to host order.
    ip->ip_len += optlen;
    return (m);
 }
 
 /*
- * IP output.  The packet in mbuf chain m contains a skeletal IP
+ * Copy options from ip to jp,
+ * omitting those not copied during fragmentation.
+ */   
+int
+ip_optcopy(usn_ip_t *ip, usn_ip_t *jp)
+{     
+   u_char *cp, *dp;
+   int opt, optlen, cnt;
+      
+   cp = (u_char *)(ip + 1);
+   dp = (u_char *)(jp + 1);
+   cnt = (ip->ip_hl << 2) - sizeof (usn_ip_t);
+   for (; cnt > 0; cnt -= optlen, cp += optlen) {
+      opt = cp[0];
+      if (opt == IPOPT_EOL)
+         break;
+      if (opt == IPOPT_NOP) {
+         /* Preserve for IP mcast tunnel's LSRR alignment. */
+         *dp++ = IPOPT_NOP;
+         optlen = 1;
+         continue;
+      } else
+         optlen = cp[IPOPT_OLEN];
+      /* bogus lengths should have been caught by ip_dooptions */
+      if (optlen > cnt)
+         optlen = cnt;
+      if (IPOPT_COPIED(opt)) {
+         bcopy((caddr_t)cp, (caddr_t)dp, (unsigned)optlen);
+         dp += optlen;
+      }
+   }
+   for (optlen = dp - (u_char *)(jp+1); optlen & 0x3; optlen++)
+      *dp++ = IPOPT_EOL;
+   return (optlen);
+}
+
+/*
+ * IP output. The packet in mbuf chain m contains a skeletal IP
  * header (with len, off, ttl, proto, tos, src, dst).
  * The mbuf chain containing the packet will be freed.
  * The mbuf opt, if present, will not be freed.
@@ -117,7 +152,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 #endif
 
    if ( m == NULL ) {
-      ERROR("m is NULL");
+      DEBUG("m is NULL");
       return -1;
    }
 
@@ -132,7 +167,6 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     * Fill in IP header.
     */
    if ((flags & (IP_FORWARDING|IP_RAWOUTPUT)) == 0) { 
-      DEBUG("fill ip fields");
       ip->ip_v = IPVERSION;
       ip->ip_off &= IP_DF;
       ip->ip_id = htons(g_ip_id++);
@@ -145,7 +179,6 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     * Route packet.
     */
    if (ro == 0) {
-      DEBUG("use empty route");
       ro = &iproute;
       bzero((caddr_t)ro, sizeof (*ro));
    }
@@ -160,18 +193,23 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       RTFREE(ro->ro_rt);
       ro->ro_rt = (struct rtentry *)0;
    }
+
 #ifdef DUMP_PAYLOAD
    DEBUG("ptr=%p", m);
    dump_buffer((char*)m->head, m->mlen, "dst1");
 #endif
+
    if (ro->ro_rt == 0) {
       DEBUG("set default dst");
       dst->sin_family = AF_INET;
       dst->sin_len = sizeof(*dst);
       dst->sin_addr = ip->ip_dst;
+
 #ifdef DUMP_PAYLOAD
-      dump_buffer((char*)dst, sizeof(*dst), "dst2");
+   DEBUG("ptr=%p", m);
+   dump_buffer((char*)dst, sizeof(*dst), "dst2");
 #endif
+
    }
    /*
     * If routing to interface only,
@@ -286,7 +324,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 
  {
    int mhlen, firstlen = len;
-   usn_mbuf_t **mnext = &m->next;
+   usn_mbuf_t **mnext = &m->queue;
 
    /*
     * Loop through length of segment after first fragment,
@@ -296,22 +334,19 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    m0 = m;
    mhlen = sizeof (usn_ip_t);
    for (off = hlen + len; off < (u_short)ip->ip_len; off += len) {
-      // FIXME implement this
-      //MGETHDR(m, M_DONTWAIT, MT_HEADER);
-      m = 0;
+      m = usn_get_mbuf(0, MSIZE, 0);
       if (m == 0) {
          error = -ENOBUFS;
          //ipstat.ips_odropped++;
          DEBUG("m is null");
          goto sendorfree;
       }
-      // FIXME implement this
-      //m->m_data += max_linkhdr;
+      m->head += g_max_linkhdr;
+      m->mlen -= g_max_linkhdr;
       mhip = mtod(m, usn_ip_t *);
       *mhip = *ip;
       if (hlen > (int)sizeof (usn_ip_t)) {
-         // FIXME implement this
-         //mhlen = ip_optcopy(ip, mhip) + sizeof (usn_ip_t);
+         mhlen = ip_optcopy(ip, mhip) + sizeof (usn_ip_t);
          mhip->ip_hl = mhlen >> 2;
       }
       m->mlen = mhlen;
@@ -323,11 +358,9 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       else
          mhip->ip_off |= IP_MF;
       mhip->ip_len = htons((u_short)(len + mhlen));
-      // FIXME implement this
-      //m->next = m_copy(m0, off, len);
+      m->next = usn_copy_data(m0, off, len);
       if (m->next == 0) {
-         DEBUG("m is released");
-         usn_free_mbuf(m);
+         MFREE(m);
          error = -ENOBUFS;  /* ??? */
          //ipstat.ips_odropped++;
          goto sendorfree;
@@ -338,8 +371,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       mhip->ip_sum = 0;
       mhip->ip_sum = in_cksum(m, mhlen);
       *mnext = m;
-      // FIXME implement this
-      //mnext = &m->m_nextpkt;
+      mnext = &m->queue;
       //ipstat.ips_ofragments++;
    }
    /*
@@ -348,9 +380,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     */
    m = m0;
    m_adj(m, hlen + firstlen - (u_short)ip->ip_len);
-
-   // FIXME: do we need?
-   //ip->ip_len = htons((u_short)m->m_pkthdr.len);
+   ip->ip_len = htons((u_short)usn_get_mbuflen(m));
 
    ip->ip_off = htons((u_short)(ip->ip_off | IP_MF));
    ip->ip_sum = 0;
@@ -358,20 +388,18 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 
 sendorfree:
    DEBUG("error=%d, m=%p",error, m);
-   return eth_output(m,(struct usn_sockaddr *)dst, ro->ro_rt); 
+   //return eth_output(m,(struct usn_sockaddr *)dst, ro->ro_rt); 
 
-   //for (m = m0; m; m = m0) {
-      //m0 = m->m_nextpkt;
-      //m->m_nextpkt = 0;
-      //if (error == 0)
-      //   error = (*ifp->if_output)(ifp, m,
-      //       (struct usn_sockaddr *)dst, ro->ro_rt);
-      //else
-      //   usn_free_mbuf(m);
-   //}
-     //if (error == 0)
-     // ipstat.ips_fragmented++;
-   ;
+   for (m = m0; m; m = m0) {
+      m0 = m->queue;
+      m->queue = 0;
+      if (error == 0)
+         error = eth_output(m,(struct usn_sockaddr *)dst, ro->ro_rt); 
+      else
+         MFREEQ(m);
+   }
+   if (error == 0)
+      ;//g_ipstat.ips_fragmented++;
  }
 done:
    if (ro == &iproute && (flags & IP_ROUTETOIF) == 0 && ro->ro_rt) {
@@ -379,9 +407,8 @@ done:
    }
    return (error);
 bad:
-   usn_free_mbuf(m0);
+   MFREE(m0);
    goto done;
-
    return 0;
 }
 /*

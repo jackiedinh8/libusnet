@@ -139,12 +139,13 @@ eth_input(u_char *buf, int len)
 #ifdef _USN_ZERO_COPY_
    m = usn_get_mbuf_zc(buf, len, flags);
 #else
+   DEBUG("copy frame to mbuf, len=%d", len);
    m = usn_get_mbuf(buf, len, flags);
 #endif
 
 	if (m == 0) {
       // if_nomem++ 
-      DEBUG("warn: mem failed");
+      DEBUG("warn: mbuf mem failed");
 		return;
    }
    m->flags |= BUF_ETHERHDR;
@@ -170,7 +171,7 @@ eth_input(u_char *buf, int len)
 			DEBUG("RARP protocol is not supported");
 			break;
 		default:
-			DEBUG("protocol is not supported, proto=%d", ether_type);
+			DEBUG("protocol is not supported, ether_type=%d", ether_type);
 			break;
 	}
 
@@ -182,7 +183,7 @@ int32
 eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
 {
    short type;
-   int32  error = -1;
+   int32  error = 0;
    u_char edst[6];
    usn_mbuf_t *m = m0;
    struct rtentry *rt;
@@ -295,11 +296,9 @@ eth_output(usn_mbuf_t *m0, struct usn_sockaddr *dst, struct rtentry *rt0)
     * Queue message on interface, and start output if interface
     * not yet active.
     */
-   //return send_mbuf(m);
-   return usnet_send_frame(m);
+   error = usnet_send_frame(m);
 bad:
-   if (m) 
-      usn_free_mbuf(m);
+   MFREE(m);
    return (error);
 }
 

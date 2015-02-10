@@ -144,7 +144,7 @@ usnet_init_internal()
    //initialize slab_pool
    g_shm.addr = NULL;
    g_shm.key  = 0x12345;
-   g_shm.size = 4024*1000;
+   g_shm.size = 1*1024*1024;
    usn_shm_alloc(&g_shm);
 
    g_slab_pool = (usn_slab_pool_t*)g_shm.addr;

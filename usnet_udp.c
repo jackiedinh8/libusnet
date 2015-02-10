@@ -173,7 +173,7 @@ udp_output(struct inpcb *inp, usn_mbuf_t *m, usn_mbuf_t *addr, usn_mbuf_t  *cont
    return (error);
 
 release:
-   usn_free_mbuf(m);
+   MFREE(m);
    return (error);
 } 
 
@@ -210,23 +210,13 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
    usn_mbuf_t *opts = 0;
    int len;
    usn_ip_t save_ip;
-   struct ipovly ipov;
 
-   (void)ipov;
-   DEBUG("dump info, size_ip=%lu, size_ipovly=%lu, "
-         "ih_next=%lu, ih_prev=%lu, ih_x1=%lu, ih_pr=%lu, ih_len=%lu, ih_src=%lu, ih_dst=%lu", 
-          sizeof(usn_ip_t), sizeof(ipov), 
-          sizeof(ipov.ih_next), sizeof(ipov.ih_prev),
-          sizeof(ipov.ih_x1), sizeof(ipov.ih_pr), sizeof(ipov.ih_len),
-          sizeof(ipov.ih_src), sizeof(ipov.ih_dst));
-   
    g_udpstat.udps_ipackets++;
    /* 
     * Strip IP options, if any; should skip this,
     * make available to user, and use on returned packets,
     * but we don't yet have a way to check the checksum
     * with options still present.
-    * TODO implement it
     */
    if (iphlen > sizeof(usn_ip_t)) {
       DEBUG("strip ip options");
@@ -276,7 +266,7 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
       ((struct ipovly *)ip)->ih_x1 = 0;
       ((struct ipovly *)ip)->ih_len = uh->uh_ulen;
       if ( (uh->uh_sum = in_cksum(m, len + sizeof (usn_ip_t))) ) {
-         NDEBUG("checksum failed");
+         DEBUG("checksum failed");
          g_udpstat.udps_badsum++;
          usn_free_mbuf(m);
          return;
@@ -311,22 +301,6 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
       icmp_error(m, ICMP_UNREACH, ICMP_UNREACH_PORT, 0, 0);
       return;
    }
-
-//#define TEST_UDP
-#ifdef TEST_UDP
-      u_int32 ipaddr;
-      u_short port;
-      port = uh->uh_sport;
-      uh->uh_sport = uh->uh_dport;
-      uh->uh_dport = port;
-      *ip = save_ip;
-      ipaddr = ip->ip_src.s_addr;
-      ip->ip_src.s_addr = ip->ip_dst.s_addr;
-      ip->ip_dst.s_addr = ipaddr;
-      ip->ip_len = ntohs(ntohs(ip->ip_len) + sizeof(*ip));
-      //dump_buffer((char*)m->head, m->mlen, "test");
-      goto test;
-#endif
 
    /*
     * Construct sockaddr format source address.
@@ -379,57 +353,8 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
    return;
 
 bad:
-   DEBUG("bad packet");
-   if (m) 
-      usn_free_mbuf(m);
-   if (opts)
-      usn_free_mbuf(opts);
-   return;
-
-#ifdef TEST_UDP
-test:
-   DEBUG("increase refs, ptr=%p, refs=%d, pkt_size=%d", m, m->refs, m->mlen);
-   printf("packet_len=%d \n", m->mlen);
-   m->refs++;
-   ipv4_output(m, 0, 0, IP_ROUTETOIF);
-
-//#define TEST_NETMAP
-#ifdef TEST_NETMAP
-   test_netmap(m);
-   return;
-#endif
-   
-   int i;
-   struct timeval stime, etime, dtime;
-   static int cnt = 0;
-   static int g_cnt = 0;
-   
-   if ( cnt == 0 ) {
-      cnt++;
-      return;
-   }
-   cnt=0;
-   gettimeofday(&stime,0);
-   for (i=0; i < 1000000; i++) {
-      //DEBUG("send %i_packet", i);
-      //dump_buffer((char*)m->head, m->mlen, "ipv4");
-      m->refs++;
-      m->head += sizeof(ether_header_t);
-      m->mlen -= sizeof(ether_header_t);
-      if ( ipv4_output(m, 0, 0, IP_ROUTETOIF) >= 0 ) cnt++;
-      //if ( send_mbuf(m) ) cnt++;
-   }
-   gettimeofday(&etime,0);
-   g_cnt += cnt;
-   timersub(&etime, &stime, &dtime);
-   printf("num of sent udp packets by netmap-base stack: %d \n", i);
-   printf("total time: %lu seconds %lu microseconds, cnt=%d \n", 
-           dtime.tv_sec, dtime.tv_usec, cnt);
-
-   usnet_netmap_flush();
-   sleep(1);
-   //goto dotest;
-#endif
+   MFREE(m);
+   MFREE(opts);
    return;
 }
 

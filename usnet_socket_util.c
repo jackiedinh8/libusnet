@@ -275,12 +275,12 @@ sbdrop(struct sockbuf *sb, int len)
       }
       len -= m->mlen;
       sbfree(sb, m);
-      MFREE(m, mn);
+      MFREE_FIRST(m, mn);
       m = mn;
    }
    while (m && m->mlen == 0) {
       sbfree(sb, m);
-      MFREE(m, mn);
+      MFREE_FIRST(m, mn);
       m = mn;
    }
    if (m) {
@@ -439,7 +439,7 @@ sbcompress(struct sockbuf *sb, usn_mbuf_t *m, usn_mbuf_t *n)
 
    while (m) {
       if (m->mlen == 0 ) {
-         MFREE(m,t);
+         MFREE_FIRST(m,t);
          m = t;
          continue;
       }   
@@ -448,7 +448,7 @@ sbcompress(struct sockbuf *sb, usn_mbuf_t *m, usn_mbuf_t *n)
              (unsigned)m->mlen);
          n->mlen += m->mlen;
          sb->sb_cc += m->mlen;
-         MFREE(m,t);
+         MFREE_FIRST(m,t);
          m = t;
          continue;
       }   

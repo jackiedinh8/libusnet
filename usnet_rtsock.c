@@ -570,7 +570,9 @@ rt_missmsg(int type, struct rt_addrinfo *rtinfo, int flags, int error)
 	rtm->rtm_errno = error;
 	rtm->rtm_addrs = rtinfo->rti_addrs;
 	route_proto.sp_protocol = sa ? sa->sa_family : 0;
+
    // TODO: implement this
+   DEBUG("not implement yet");
 	//raw_input(m, &route_proto, &route_src, &route_dst);
 }
 

@@ -84,58 +84,6 @@ arplookup( u_long addr, int create, int proxy)
    return ((struct llinfo_arp *)rt->rt_llinfo);
 }
 
-arp_cache_t* 
-arplookup_old(arp_entry_t *ae, int create)
-{
-   arp_cache_t   *p_ac = NULL; 
-
-   if ( !ae )
-      goto out;
-
-   p_ac = g_arp_cache;
-   while (p_ac) {
-      if ( p_ac->arp.ip_addr == ae->ip_addr )  {
-        if ( p_ac->arp.flags & ARP_ENTRY_COMPLETE ) 
-          goto found;
-        else if ( create ) {
-          if ( ae->flags & ARP_ENTRY_COMPLETE ) {
-             memcpy(&p_ac->arp, ae, sizeof(*ae));
-             goto found;
-          }
-          goto out;
-        }
-      }
-      p_ac = p_ac->next;
-   } 
-
-   if ( !p_ac && create ) {
-      // create new entry
-      p_ac = (arp_cache_t*) usn_get_buf(0, sizeof(arp_cache_t));
-      memcpy(&p_ac->arp, ae, sizeof(*ae));
-      //set expired time.
-      p_ac->arp.last_time = g_time.tv_sec + g_arpt_keep;
-      
-      p_ac->prev = g_arp_cache->prev;
-      p_ac->next = g_arp_cache;
-      g_arp_cache->prev = p_ac;
-
-      g_arp_cache = p_ac;
-      goto out;
-   }
-
-found:
-   if ( p_ac ) {
-      if ( bcmp(ae->eth_addr, p_ac->arp.eth_addr, 6) ) {
-         DEBUG("arplookup: overwrite hardware address");
-         memcpy(p_ac->arp.eth_addr, ae->eth_addr, 6);
-      }
-      //update expired time.
-      if ( p_ac->arp.last_time )
-          p_ac->arp.last_time = g_time.tv_sec + g_arpt_keep;
-   }
-out:
-   return p_ac;
-}
 
 void 
 arpwhohas(struct usn_in_addr *addr)
@@ -304,7 +252,7 @@ arpresolve(struct rtentry *rt, usn_mbuf_t *m, struct usn_sockaddr *dst, u_char *
    if (la->la_hold)
       usn_free_mbuf(la->la_hold);
    m->flags |= BUF_RAW;
-   m->refs++;
+   //m->refs++; XXX
    la->la_hold = m;
    if (rt->rt_expire) {
       rt->rt_flags &= ~RTF_REJECT;
@@ -464,8 +412,11 @@ in_arpinput(usn_mbuf_t *m)
    struct usn_sockaddr_dl    *sdl;
    //arp_entry_t            ae;
    int op;
-   
+
+#ifdef DUMP_PAYLOAD   
    DEBUG("dump info, ptr=%p, len=%d", m->head, m->mlen);
+   dump_chain(m, "tcp");
+#endif
 
    ea = mtod(m, struct ether_arp *);
    op = ntohs(ea->arp_op);
@@ -528,7 +479,7 @@ in_arpinput(usn_mbuf_t *m)
 reply:
    if (op != ARPOP_REQUEST) {
    out:
-      usn_free_mbuf(m);
+      MFREE(m);
       return;
    }  
    if (itaddr.s_addr == myaddr.s_addr) {
@@ -560,11 +511,10 @@ reply:
    eh->ether_type = ETHERTYPE_ARP;
    sa.sa_family = AF_UNSPEC;
    sa.sa_len = sizeof(sa);
-
    m->mlen = sizeof(*ea);
+
    // send response out
    eth_output(m, &sa, 0);
-
    return;
 }
 
