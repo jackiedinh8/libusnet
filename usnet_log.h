@@ -6,7 +6,7 @@
 
 //#define DUMP_PAYLOAD
 
-//#define NON_DEBUG
+#define NON_DEBUG
 #ifdef NON_DEBUG
 #define DEBUG(_fmt, ...)     do {} while(0)
 #else

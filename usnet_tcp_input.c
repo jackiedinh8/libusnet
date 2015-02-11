@@ -283,8 +283,6 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	NTOHS(ti->ti_win);
 	NTOHS(ti->ti_urp);
 
-   tcp_print(ti);
-
 	// Locate pcb for segment.
 findpcb:
 	inp = g_tcp_last_inpcb;
@@ -444,6 +442,9 @@ findpcb:
 				else if (tp->t_timer[TCPT_PERSIST] == 0)
 					tp->t_timer[TCPT_REXMT] = tp->t_rxtcur;
 
+	         if (so->so_options & SO_DEBUG)
+             	tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);
+
 				if (so->so_snd.sb_flags & SB_NOTIFY) {
                DEBUG("FIXME: sowwakeup notify, write callback");
 					sowwakeup(so);
@@ -470,6 +471,12 @@ findpcb:
 			m->mlen -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 			sbappend(&so->so_rcv, m);
          DEBUG("FIXME:sorwakeup add data to buf");
+
+	      if (so->so_options & SO_DEBUG) {
+            DEBUG("tcp trace");
+          	tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);
+         }
+
 			sorwakeup(so);
 			tp->t_flags |= TF_DELACK;
 			return;
@@ -1052,7 +1059,6 @@ close:
 				soisdisconnected(so);
 			}
 			break;
-
 		
 		// In LAST_ACK, we may still be waiting for data to drain
 		// and/or to be acked, as well as for the ack of our FIN.
@@ -1215,8 +1221,10 @@ dodata:							// XXX
 			break;
 		}
 	}
-	if (so->so_options & SO_DEBUG)
+	if (so->so_options & SO_DEBUG) {
+      DEBUG("tcp trace");
 		tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);
+   }
 
 	// Return any desired output.
 	if (needoutput || (tp->t_flags & TF_ACKNOW))
@@ -1260,8 +1268,10 @@ dropwithreset:
 drop:
    DEBUG("drop");
 	// Drop space held by incoming segment and return.
-	if (tp && (tp->t_inpcb->inp_socket->so_options & SO_DEBUG))
+	if (tp && (tp->t_inpcb->inp_socket->so_options & SO_DEBUG)) {
+      DEBUG("tcp trace");
 		tcp_trace(TA_DROP, ostate, tp, &g_tcp_saveti, 0);
+   }
 	usn_free_cmbuf(m);
 	// destroy temporarily created socket
 	if (dropsocket)

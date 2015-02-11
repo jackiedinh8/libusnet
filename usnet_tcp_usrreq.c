@@ -317,8 +317,10 @@ tcp_usrreq(struct usn_socket *so, int req,
    default:
       DEBUG("panic: tcp_usrreq");
    }
-   if (tp && (so->so_options & SO_DEBUG))
+   if (tp && (so->so_options & SO_DEBUG)) {
+      DEBUG("tcp trace");
       tcp_trace(TA_USER, ostate, tp, (struct tcpiphdr *)0, req);
+   }
    //splx(s);
    return (error);
 }

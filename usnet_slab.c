@@ -162,8 +162,8 @@ usn_slab_alloc(usn_slab_pool_t *pool, size_t size)
     if ( p != NULL ) {
        g_slab_alloc_nr++;
        g_slab_alloc_size += size;
-       DEBUG("slab stats: alloc=%d, free=%d, size=%d, ptr=%p, len=%lu", 
-             g_slab_alloc_nr, g_slab_free_nr, g_slab_alloc_size, p, size);
+       //DEBUG("slab stats: alloc=%d, free=%d, size=%d, ptr=%p, len=%lu", 
+       //      g_slab_alloc_nr, g_slab_free_nr, g_slab_alloc_size, p, size);
     }
     //usn_shmtx_unlock(&pool->mutex);
 
@@ -452,8 +452,8 @@ usn_slab_free(usn_slab_pool_t *pool, void *p)
     //usn_shmtx_lock(&pool->mutex);
 
     g_slab_free_nr++;
-    DEBUG("slab stats: alloc=%d, free=%d, size=%d, ptr=%p", 
-          g_slab_alloc_nr, g_slab_free_nr, g_slab_alloc_size, p);
+    //DEBUG("slab stats: alloc=%d, free=%d, size=%d, ptr=%p", 
+    //      g_slab_alloc_nr, g_slab_free_nr, g_slab_alloc_size, p);
 
     usn_slab_free_locked(pool, p);
 

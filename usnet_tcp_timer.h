@@ -107,11 +107,6 @@
 
 #define	TCP_MAXRXTSHIFT	12			/* maximum retransmits */
 
-#ifdef	TCPTIMERS
-char *tcptimers[] =
-    { "REXMT", "PERSIST", "KEEP", "2MSL" };
-#endif
-
 /*
  * Force a time value to be in a certain range.
  */

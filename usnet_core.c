@@ -705,6 +705,7 @@ usnet_dispatch()
        fds.revents = 0;
        ret = poll(&fds, 1, 5000);
        if (ret <= 0 ) {
+          /*
           DEBUG("poll %s ev %x %x rx @%d:%d:%d ", 
             ret <= 0 ? "timeout" : "ok",
             fds.events,
@@ -719,6 +720,7 @@ usnet_dispatch()
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->head,
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->cur,
             NETMAP_RXRING(g_nmd->nifp, g_nmd->cur_tx_ring)->tail);
+          */
           tcp_fasttimo();
           tcp_slowtimo();
           continue;
@@ -752,8 +754,8 @@ usnet_dispatch()
                    j <= g_nmd->last_rx_ring; j++) {
              rxring = NETMAP_RXRING(nifp, j);
 
-				 DEBUG("Ring info rx(%d), head=%d, cur=%d, tail=%d", 
-                   j, rxring->head, rxring->cur, rxring->tail); 
+				 //DEBUG("Ring info rx(%d), head=%d, cur=%d, tail=%d", 
+             //      j, rxring->head, rxring->cur, rxring->tail); 
 
              if (nm_ring_empty(rxring)) {
                 continue;

@@ -131,16 +131,6 @@ struct protosw {
 
 #define	PRU_NREQ		21
 
-#ifdef PRUREQUESTS
-char *prurequests[] = {
-	"ATTACH",	"DETACH",	"BIND",		"LISTEN",
-	"CONNECT",	"ACCEPT",	"DISCONNECT",	"SHUTDOWN",
-	"RCVD",		"SEND",		"ABORT",	"CONTROL",
-	"SENSE",	"RCVOOB",	"SENDOOB",	"SOCKADDR",
-	"PEERADDR",	"CONNECT2",	"FASTTIMO",	"SLOWTIMO",
-	"PROTORCV",	"PROTOSEND",
-};
-#endif
 
 /*
  * The arguments to the ctlinput routine are

@@ -34,20 +34,31 @@
  */
 
 #include "usnet_tcp_debug.h"
+#include "usnet_tcp_fsm.h"
 #include "usnet_tcpip.h"
 #include "usnet_ip_icmp.h"
 
-#ifdef TCPDEBUG
-/* load symbolic names */
-#define PRUREQUESTS
-#define TCPSTATES
-#define	TCPTIMERS
-#define	TANAMES
-#endif
 
-#ifdef TCPDEBUG
-int	tcpconsdebug = 0;
-#endif
+int g_tcpconsdebug = 1;
+char *prurequests[] = {
+	"ATTACH",	"DETACH",	"BIND",		"LISTEN",
+	"CONNECT",	"ACCEPT",	"DISCONNECT",	"SHUTDOWN",
+	"RCVD",		"SEND",		"ABORT",	"CONTROL",
+	"SENSE",	"RCVOOB",	"SENDOOB",	"SOCKADDR",
+	"PEERADDR",	"CONNECT2",	"FASTTIMO",	"SLOWTIMO",
+	"PROTORCV",	"PROTOSEND",
+};
+char *tcptimers[] =
+    { "REXMT", "PERSIST", "KEEP", "2MSL" };
+char *tcpstates[] = {
+	"CLOSED",	"LISTEN",	"SYN_SENT",	"SYN_RCVD",
+	"ESTABLISHED",	"CLOSE_WAIT",	"FIN_WAIT_1",	"CLOSING",
+	"LAST_ACK",	"FIN_WAIT_2",	"TIME_WAIT",
+};
+char	*tanames[] =
+    { "input", "output", "user", "respond", "drop" };
+
+
 /*
  * Tcp debug routines
  */
@@ -55,14 +66,10 @@ void
 tcp_trace( short act, short ostate, struct tcpcb *tp, 
            struct tcpiphdr *ti, int req)
 {
+   struct usn_socket *so;
 	tcp_seq seq, ack;
 	int len, flags;
 	struct tcp_debug *td = &g_tcp_debug[g_tcp_debx++];
-
-   (void) flags;
-   (void) len;
-   (void) ack;
-   (void) seq;
 
 	if (g_tcp_debx == TCP_NDEBUG)
 		g_tcp_debx = 0;
@@ -79,14 +86,14 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 	else
 		bzero((caddr_t)&td->td_ti, sizeof (*ti));
 	td->td_req = req;
-#ifdef TCPDEBUG
-	if (tcpconsdebug == 0)
+
+	if (g_tcpconsdebug == 0)
 		return;
 	if (tp)
-		DEBUG("%x %s:", tp, tcpstates[ostate]);
+		ERROR("%p %s:", tp, tcpstates[ostate]);
 	else
-		DEBUG("???????? ");
-	DEBUG("%s ", tanames[act]);
+		ERROR("???????? ");
+	ERROR("%s ", tanames[act]);
 	switch (act) {
 
 	case TA_INPUT:
@@ -105,44 +112,52 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 		if (act == TA_OUTPUT)
 			len -= sizeof (struct tcphdr);
 		if (len)
-			DEBUG("[%x..%x)", seq, seq+len);
+			ERROR("[%u..%u)", seq, seq+len);
 		else
-			DEBUG("%x", seq);
-		DEBUG("@%x, urp=%x", ack, ti->ti_urp);
+			ERROR("%u", seq);
+		ERROR("@%x, urp=%u", ack, ti->ti_urp);
 		flags = ti->ti_flags;
 		if (flags) {
-#ifndef lint
-			char *cp = "<";
-#define pf(f) { if (ti->ti_flags&TH_/**/f) { printf("%s%s", cp, "f"); cp = ","; } }
-			pf(SYN); pf(ACK); pf(FIN); pf(RST); pf(PUSH); pf(URG);
-#endif
-			DEBUG(">");
+         ERROR("flags: %s%s%s%s%s%s",
+             ti->ti_flags&TH_SYN ? "S": " ",
+             ti->ti_flags&TH_ACK ? "A": " ",
+             ti->ti_flags&TH_FIN ? "F": " ",
+             ti->ti_flags&TH_RST ? "R": " ",
+             ti->ti_flags&TH_PUSH ? "P": " ",
+             ti->ti_flags&TH_URG ? "U": " "
+             );
+			//char *cp = "<";
+         //#define pf(f) { if (ti->ti_flags&TH_ ## f) { printf("%s%s", cp, "#f"); cp = ","; } }
+         //pf(SYN); pf(ACK); pf(FIN); pf(RST); pf(PUSH); pf(URG);
+			//ERROR(">");
 		}
 		break;
 
 	case TA_USER:
-		DEBUG("%s", prurequests[req&0xff]);
+		ERROR("%s", prurequests[req&0xff]);
 		if ((req & 0xff) == PRU_SLOWTIMO)
-			DEBUG("<%s>", tcptimers[req>>8]);
+			ERROR("<%s>", tcptimers[req>>8]);
 		break;
 	}
 	if (tp)
-		DEBUG(" -> %s", tcpstates[tp->t_state]);
+		ERROR(" -> %s", tcpstates[tp->t_state]);
 	/* print out internal state of tp !?! */
-	DEBUG("\n");
 	if (tp == 0)
 		return;
-	DEBUG("\trcv_(nxt,wnd,up) (%x,%x,%x) snd_(una,nxt,max) (%x,%x,%x)\n",
+	ERROR("\trcv_(nxt,wnd,up) (%u,%lu,%u) snd_(una,nxt,max) (%u,%u,%u)",
 	    tp->rcv_nxt, tp->rcv_wnd, tp->rcv_up, tp->snd_una, tp->snd_nxt,
 	    tp->snd_max);
-	DEBUG("\tsnd_(wl1,wl2,wnd) (%x,%x,%x)\n",
+	ERROR("\tsnd_(wl1,wl2,wnd) (%u,%u,%lu)",
 	    tp->snd_wl1, tp->snd_wl2, tp->snd_wnd);
-#endif /* TCPDEBUG */
+
+   so = tp->t_inpcb->inp_socket;
+   ERROR("rcv_buff: %u",so->so_rcv.sb_mb ? usn_get_mbuflen(so->so_rcv.sb_mb) : 0);
+   ERROR("snd_buff: %u",so->so_snd.sb_mb ? usn_get_mbuflen(so->so_snd.sb_mb) : 0);
 }
 
 void tcp_print(struct tcpiphdr *ti)
 {
-   DEBUG("tcp info, seq=%u, ack=%u, win=%u, urg=%u", 
+   ERROR("tcp info, seq=%u, ack=%u, win=%u, urg=%u", 
             ti->ti_seq,
             ti->ti_ack,
             ti->ti_win,

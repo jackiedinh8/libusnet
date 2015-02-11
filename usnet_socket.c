@@ -233,6 +233,7 @@ usnet_create_socket(u_int32 dom, struct usn_socket **aso, u_int32 type, u_int32 
    so->so_type = type;
    so->so_family = dom;
    so->so_pcb = 0;
+   so->so_options |= SO_DEBUG;
    if ( type == SOCK_DGRAM )
       so->so_usrreq = udp_usrreq;
    else if ( type == SOCK_STREAM )

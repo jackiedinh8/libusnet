@@ -459,8 +459,10 @@ send:
 
 
 	// Trace.
-	if (so->so_options & SO_DEBUG)
+	if (so->so_options & SO_DEBUG) {
+      DEBUG("tcp trace");
 		tcp_trace(TA_OUTPUT, tp->t_state, tp, ti, 0);
+   }
 
 	// Fill in IP length and desired time to live and
 	// send to IP level.  There should be a better way
