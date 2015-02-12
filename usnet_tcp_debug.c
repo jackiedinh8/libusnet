@@ -71,6 +71,8 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 	int len, flags;
 	struct tcp_debug *td = &g_tcp_debug[g_tcp_debx++];
 
+   (void)so;
+
 	if (g_tcp_debx == TCP_NDEBUG)
 		g_tcp_debx = 0;
 	td->td_time = iptime();

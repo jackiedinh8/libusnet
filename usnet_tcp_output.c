@@ -65,7 +65,7 @@ tcp_output(struct tcpcb *tp)
 
 #ifdef DUMP_PAYLOAD
    DEBUG("tcp_output");
-   dump_chain(m, "tcp");
+   //dump_chain(m,"tcp");
 #endif
 
    memset(opt, 0, MAX_TCPOPTLEN);
@@ -76,7 +76,6 @@ tcp_output(struct tcpcb *tp)
 	// to send, then transmit; otherwise, investigate further.
 	idle = (tp->snd_max == tp->snd_una);
 	if (idle && tp->t_idle >= tp->t_rxtcur)
-
 		// We have been idle for "a while" and no acks are
 		// expected to clock out any data we send --
 		// slow start to get ack "clock" running again.
@@ -170,19 +169,32 @@ again:
 	// next expected input).  If the difference is at least two
 	// max size segments, or at least 50% of the maximum possible
 	// window, then want to send a window update to peer.
-	if (win > 0) {
+	if (win > 0 && !(tp->t_flags & TF_DELACK)
+         && !TCPS_HAVERCVDFIN(tp->t_state)) {
 		// "adv" is the amount we can increase the window,
 		// taking into account that we are limited by
 		// TCP_MAXWIN << tp->rcv_scale.
-		long adv = min(win, (long)TCP_MAXWIN << tp->rcv_scale) -
-			(tp->rcv_adv - tp->rcv_nxt);
+		long adv;
+      int oldwin;
 
-		if (adv >= (long) (2 * tp->t_maxseg))
+      adv = min(win, (long)TCP_MAXWIN << tp->rcv_scale);
+      if ( SEQ_GT(tp->rcv_adv, tp->rcv_nxt) ) {
+         oldwin = (tp->rcv_adv - tp->rcv_nxt);
+         adv -= oldwin;
+      } else
+         oldwin = 0;
+
+      if (oldwin >> tp->rcv_scale == (adv + oldwin) >>tp->rcv_scale )
+         goto dontupdate;
+		if (adv >= (long) (2 * tp->t_maxseg) &&
+          (adv >= (long)(so->so_rcv.sb_hiwat / 4 ) ||
+           win <= (long)(so->so_rcv.sb_hiwat / 8 ) ||
+           so->so_rcv.sb_hiwat <= 8 * tp->t_maxseg) )
 			goto send;
-		if (2 * adv >= (long) so->so_rcv.sb_hiwat)
-			goto send;
+		//if (2 * adv >= (long) so->so_rcv.sb_hiwat)
+		//   goto send;
 	}
-
+dontupdate:
 	// Send if we owe peer an ACK.
 	if (tp->t_flags & TF_ACKNOW)
 		goto send;
@@ -228,7 +240,11 @@ again:
 	return (0);
 
 send:
-
+   DEBUG("tcp flags: %d",tp->t_flags);
+   tp->t_flags &= ~TF_NEEDOUTPUT;
+   //tp->t_flags &= ~TF_ACKNOW;
+   //tp->t_flags &= ~TF_DELACK;
+   DEBUG("tcp flags: %d",tp->t_flags);
 	// Before ESTABLISHED, force sending of initial options
 	// unless TCP set not to do any options.
 	// NOTE: we assume that the IP/TCP header plus TCP options
@@ -485,7 +501,7 @@ send:
 
 	error = ipv4_output(m, tp->t_inpcb->inp_options, &tp->t_inpcb->inp_route,
 	    so->so_options & SO_DONTROUTE);
-
+   DEBUG("ipv4 error:%d", error);
 	if (error) {
       out:
 		if (error == ENOBUFS) {

@@ -23,7 +23,8 @@
 #define INFO(_fmt, ...)     do {} while(0)
 #define WARN(_fmt, ...)     do {} while(0)
 
-//#define ERROR(_fmt, ...)     do {} while(0)
+#define ERROR(_fmt, ...)     do {} while(0)
+/*
 #define ERROR(_fmt, ...)                \
    do {                    \
       struct timeval _t0;           \
@@ -33,7 +34,7 @@
           __FUNCTION__, __LINE__, ##__VA_ARGS__);  \
         } while (0)
 
-
+*/
 #define FATAL(_fmt, ...)     do {} while(0)
 
 #endif //!_USNET_LOG_H_

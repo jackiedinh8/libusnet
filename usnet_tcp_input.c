@@ -77,10 +77,13 @@ struct	inpcb *g_tcp_last_inpcb = &g_tcb;
 		g_tcpstat.tcps_rcvpack++;\
 		g_tcpstat.tcps_rcvbyte += (ti)->ti_len;\
 		sbappend(&(so)->so_rcv, (m)); \
+		tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);\
 		sorwakeup(so); \
 	} else { \
 		(flags) = tcp_reass((tp), (ti), (m)); \
+		tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);\
 		tp->t_flags |= TF_ACKNOW; \
+      DEBUG("ack now");\
 	} \
 }
 
@@ -177,7 +180,7 @@ present:
 	} while (ti != (struct tcpiphdr *)tp && ti->ti_seq == tp->rcv_nxt);
 
    // FIXME: callbacks
-	//sorwakeup(so);
+	sorwakeup(so);
 	return (flags);
 }
 
@@ -196,7 +199,8 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	struct tcpcb *tp = 0;
 	int tiflags;
 	struct usn_socket *so = 0;
-	int todrop, acked, ourfinisacked, needoutput = 0;
+	int todrop, acked, ourfinisacked;
+   int needoutput = 0;
 	short ostate;
 	struct usn_in_addr laddr;
 	int dropsocket = 0;
@@ -204,6 +208,7 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 	u_long tiwin, ts_val, ts_ecr;
 	int ts_present = 0;
 
+   (void)needoutput;
 	g_tcpstat.tcps_rcvtotal++;
 	// Get IP and TCP header together in first mbuf.
 	// Note: IP leaves IP header in first mbuf.
@@ -306,11 +311,11 @@ findpcb:
 
 	tp = intotcpcb(inp);
 
-   DEBUG("found inp cb, laddr=%x, lport=%d, faddr=%x, fport=%d, tp_state=%d",
+   DEBUG("found inp cb, laddr=%x, lport=%d, faddr=%x, fport=%d, tp_state=%d, tp_flags=%d",
          inp->inp_laddr.s_addr,
          inp->inp_lport,
          inp->inp_faddr.s_addr,
-         inp->inp_fport, tp->t_state);
+         inp->inp_fport, tp->t_state, tp->t_flags);
 
 	if (tp == 0)
 		goto dropwithreset;
@@ -469,8 +474,9 @@ findpcb:
 			// to socket buffer.
 			m->head += sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 			m->mlen -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
-			sbappend(&so->so_rcv, m);
+
          DEBUG("FIXME:sorwakeup add data to buf");
+			sbappend(&so->so_rcv, m);
 
 	      if (so->so_options & SO_DEBUG) {
             DEBUG("tcp trace");
@@ -569,6 +575,7 @@ findpcb:
 		tcp_sendseqinit(tp);
 		tcp_rcvseqinit(tp);
 		tp->t_flags |= TF_ACKNOW;
+      DEBUG("ack now, tp flags=%d", tp->t_flags);
       DEBUG("change tcp state to TCPS_SYN_RECEIVED, state=%d", tp->t_state);
 		tp->t_state = TCPS_SYN_RECEIVED;
 		tp->t_timer[TCPT_KEEP] = TCPTV_KEEP_INIT;
@@ -610,6 +617,7 @@ findpcb:
 		tp->irs = ti->ti_seq;
 		tcp_rcvseqinit(tp);
 		tp->t_flags |= TF_ACKNOW;
+      DEBUG("ack now, tp flags=%d", tp->t_flags);
       // XXX: remove second test.
 		if (tiflags & TH_ACK /*&& SEQ_GT(tp->snd_una, tp->iss)*/) {
 			g_tcpstat.tcps_connects++;
@@ -703,6 +711,7 @@ trimthenstep6:
          // Send an ACK to resynchronize and drop any data
          // But keep on processing for RST or ACK.
          tp->t_flags |= TF_ACKNOW;
+         DEBUG("ack now, tp flags=%d", tp->t_flags);
          todrop = ti->ti_len;
          g_tcpstat.tcps_rcvdupbyte += ti->ti_len;
          g_tcpstat.tcps_rcvduppack++;
@@ -788,6 +797,7 @@ trimthenstep6:
 			// and ack.
 			if (tp->rcv_wnd == 0 && ti->ti_seq == tp->rcv_nxt) {
 				tp->t_flags |= TF_ACKNOW;
+            DEBUG("ack now, tp flags=%d", tp->t_flags);
 				g_tcpstat.tcps_rcvwinprobe++;
 			} else
 				goto dropafterack;
@@ -987,7 +997,9 @@ close:
 		// timer, using current (possibly backed-off) value.
 		if (ti->ti_ack == tp->snd_max) {
 			tp->t_timer[TCPT_REXMT] = 0;
+         DEBUG("change needoutput to 1");
 			needoutput = 1;
+         tp->t_flags |= TF_NEEDOUTPUT;
 		} else if (tp->t_timer[TCPT_PERSIST] == 0)
 			tp->t_timer[TCPT_REXMT] = tp->t_rxtcur;
 
@@ -1007,7 +1019,7 @@ close:
 
 		if (acked > so->so_snd.sb_cc) {
 			tp->snd_wnd -= so->so_snd.sb_cc;
-         DEBUG("drop all so_snd buffer, drop_bytes=%d, len=%d", so->so_snd.sb_cc, acked);
+         DEBUG("drop all so_snd buffer, drop_bytes=%d, acked=%d", so->so_snd.sb_cc, acked);
 			sbdrop(&so->so_snd, (int)so->so_snd.sb_cc);
 			ourfinisacked = 1;
 		} else {
@@ -1098,6 +1110,8 @@ step6:
 		tp->snd_wl2 = ti->ti_ack;
 		if (tp->snd_wnd > tp->max_sndwnd)
 			tp->max_sndwnd = tp->snd_wnd;
+      DEBUG("change needoutput to 1");
+      tp->t_flags |= TF_NEEDOUTPUT;
 		needoutput = 1;
 	}
 
@@ -1184,6 +1198,7 @@ dodata:							// XXX
 		if (TCPS_HAVERCVDFIN(tp->t_state) == 0) {
 			socantrcvmore(so);
 			tp->t_flags |= TF_ACKNOW;
+         DEBUG("ack now, tp flags=%d", tp->t_flags);
 			tp->rcv_nxt++;
 		}
 		switch (tp->t_state) {
@@ -1227,8 +1242,11 @@ dodata:							// XXX
    }
 
 	// Return any desired output.
-	if (needoutput || (tp->t_flags & TF_ACKNOW))
+	//if (needoutput || (tp->t_flags & TF_ACKNOW)){
+	if (tp->t_flags & TF_NEEDOUTPUT || (tp->t_flags & TF_ACKNOW)){
+      DEBUG("needoutput=%d, tp->t_flags=%d",needoutput, tp->t_flags);
 		tcp_output(tp);
+   }
 	return;
 
 dropafterack:
@@ -1239,6 +1257,7 @@ dropafterack:
 		goto drop;
 	usn_free_cmbuf(m);
 	tp->t_flags |= TF_ACKNOW;
+   DEBUG("ack now, tp flags=%d", tp->t_flags);
 	tcp_output(tp);
 	return;
 

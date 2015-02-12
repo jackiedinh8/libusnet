@@ -144,7 +144,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    struct route iproute;
    struct usn_sockaddr_in *dst;
    struct in_ifaddr *ia; 
-   int32 error = -1;
+   int32 error = 0;
   
 #ifdef DUMP_PAYLOAD 
 	DEBUG("ipv4_output: dump info: ptr=%p, len=%d\n", m, m->mlen);
@@ -398,14 +398,14 @@ sendorfree:
       else
          MFREEQ(m);
    }
-   if (error == 0)
-      ;//g_ipstat.ips_fragmented++;
+   //if (error == 0)
+   //   ;//g_ipstat.ips_fragmented++;
  }
 done:
    if (ro == &iproute && (flags & IP_ROUTETOIF) == 0 && ro->ro_rt) {
       RTFREE(ro->ro_rt);
    }
-   return (error);
+   return (error < 0 ? error : 0);
 bad:
    MFREE(m0);
    goto done;

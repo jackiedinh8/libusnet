@@ -121,6 +121,7 @@ eth_input(u_char *buf, int len)
 		return;
 	}
 
+   DEBUG("----------------------------------------------eth_input: dump info, ptr=%p, len=%d", buf, len);
 #ifdef DUMP_PAYLOAD
    DEBUG("eth_input: dump info, ptr=%p, len=%d", buf, len);
    dump_buffer((char*)buf,len,"frm");
@@ -139,8 +140,8 @@ eth_input(u_char *buf, int len)
 #ifdef _USN_ZERO_COPY_
    m = usn_get_mbuf_zc(buf, len, flags);
 #else
-   DEBUG("copy frame to mbuf, len=%d", len);
    m = usn_get_mbuf(buf, len, flags);
+   DEBUG("copy frame to mbuf, len=%d, ptr=%p", len, m);
 #endif
 
 	if (m == 0) {

@@ -60,16 +60,17 @@ struct tcpcb {
 	u_short	t_maxseg;		/* maximum segment size */
 	char	t_force;		/* 1 if forcing out a byte */
 	u_short	t_flags;
-#define	TF_ACKNOW	0x0001		/* ack peer immediately */
-#define	TF_DELACK	0x0002		/* ack, but try to delay it */
-#define	TF_NODELAY	0x0004		/* don't delay packets to coalesce */
-#define	TF_NOOPT	0x0008		/* don't use tcp options */
-#define	TF_SENTFIN	0x0010		/* have sent FIN */
+#define	TF_ACKNOW   	0x0001		/* ack peer immediately */
+#define	TF_DELACK   	0x0002		/* ack, but try to delay it */
+#define	TF_NODELAY   	0x0004		/* don't delay packets to coalesce */
+#define	TF_NOOPT	      0x0008		/* don't use tcp options */
+#define	TF_SENTFIN	   0x0010		/* have sent FIN */
 #define	TF_REQ_SCALE	0x0020		/* have/will request window scaling */
 #define	TF_RCVD_SCALE	0x0040		/* other side has requested scaling */
 #define	TF_REQ_TSTMP	0x0080		/* have/will request timestamps */
 #define	TF_RCVD_TSTMP	0x0100		/* a timestamp was received in SYN */
 #define	TF_SACK_PERMIT	0x0200		/* other side said I could SACK */
+#define	TF_NEEDOUTPUT	0x0400		/* other side said I could SACK */
 
 	struct	tcpiphdr *t_template;	/* skeletal packet for transmit */
 	struct	inpcb *t_inpcb;		/* back pointer to internet pcb */
