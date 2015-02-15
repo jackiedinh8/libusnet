@@ -127,7 +127,7 @@ udp_output(struct inpcb *inp, usn_mbuf_t *m, usn_mbuf_t *addr, usn_mbuf_t  *cont
     */
    BUF_PREPEND(m, sizeof(struct udpiphdr));
    if (m == 0) {
-      DEBUG("cound not prepend buffer");
+      ERROR("cound not prepend buffer");
       error = ENOBUFS;
       goto release;
    }

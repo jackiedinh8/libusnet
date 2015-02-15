@@ -147,17 +147,16 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    int32 error = 0;
   
 #ifdef DUMP_PAYLOAD 
-	DEBUG("ipv4_output: dump info: ptr=%p, len=%d\n", m, m->mlen);
+	TRACE("ipv4_output: dump info: ptr=%p, len=%d\n", m, m->mlen);
    dump_buffer((char*)m->head, m->mlen, "ip4");
 #endif
 
    if ( m == NULL ) {
-      DEBUG("m is NULL");
+      ERROR("m is NULL");
       return -1;
    }
 
    if (opt) {
-      DEBUG("insert ip options");
       m = ip_insertoptions(m, opt, &len);
       hlen = len; 
    }
@@ -196,18 +195,18 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 
 #ifdef DUMP_PAYLOAD
    DEBUG("ptr=%p", m);
-   dump_buffer((char*)m->head, m->mlen, "dst1");
+   dump_buffer((char*)m->head, m->mlen, "ipv4");
 #endif
 
    if (ro->ro_rt == 0) {
-      DEBUG("set default dst");
       dst->sin_family = AF_INET;
       dst->sin_len = sizeof(*dst);
       dst->sin_addr = ip->ip_dst;
+      DEBUG("using default addr: addr=%x", ip->ip_dst.s_addr);
 
 #ifdef DUMP_PAYLOAD
    DEBUG("ptr=%p", m);
-   dump_buffer((char*)dst, sizeof(*dst), "dst2");
+   dump_buffer((char*)dst, sizeof(*dst), "ipv4");
 #endif
 
    }
@@ -221,7 +220,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       if ((ia = ifatoia(ifa_ifwithdstaddr(sintosa(dst)))) == 0 &&
           (ia = ifatoia(ifa_ifwithnet(sintosa(dst)))) == 0) {
          //ipstat.ips_noroute++;
-         DEBUG("not found outgoing interface");
+         WARN("not found outgoing interface, dst=%x", dst->sin_addr.s_addr);
          error = -ENETUNREACH;
          goto bad;
       }
@@ -229,22 +228,20 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
       ip->ip_ttl = 1;
    } else {
       if (ro->ro_rt == 0) {
-         DEBUG("looking for a route");
          rtalloc(ro);
       }
       if (ro->ro_rt == 0) {
          //ipstat.ips_noroute++;
-         DEBUG("not found route");
+         ERROR("not found route, dst=%x", dst->sin_addr.s_addr);
          error = -EHOSTUNREACH;
          goto bad;
       }
-      DEBUG("route found");
       ia = ifatoia(ro->ro_rt->rt_ifa);
       ifp = ro->ro_rt->rt_ifp;
       ro->ro_rt->rt_use++;
       if (ro->ro_rt->rt_flags & RTF_GATEWAY) {
-         DEBUG("gateway-route found");
          dst = (struct usn_sockaddr_in *)ro->ro_rt->rt_gateway;
+         DEBUG("gateway found, addr=%x", dst->sin_addr.s_addr);
       }
    }
    // TODO Handle multicast part.
@@ -290,7 +287,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
 #ifdef DUMP_PAYLOAD
    dump_buffer((char*)m->head, m->mlen, "ip4");
 #endif
-   DEBUG("check mtu, ip_len=%d(%d), mtu=%d", ip->ip_len, htons((u_short)ip->ip_len), ifp->if_mtu);
+   TRACE("check mtu, ip_len=%d(%d), mtu=%d", ip->ip_len, htons((u_short)ip->ip_len), ifp->if_mtu);
    if (ip->ip_len <= ifp->if_mtu) {
       ip->ip_len = htons((u_short)ip->ip_len);
       ip->ip_sum = 0;
@@ -310,14 +307,14 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     * Must be able to put at least 8 bytes per fragment.
     */
    if (ip->ip_off & IP_DF) {
-      DEBUG("bad fragment, ip_off=%d", ip->ip_off);
+      ERROR("bad fragment, ip_off=%d", ip->ip_off);
       error = -EMSGSIZE;
       //ipstat.ips_cantfrag++;
       goto bad;
    }
    len = (ifp->if_mtu - hlen) &~ 7;
    if (len < 8) {
-      DEBUG("too small, len=%d", len);
+      ERROR("packet is too small, len=%d", len);
       error = -EMSGSIZE;
       goto bad;
    }
@@ -330,7 +327,7 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
     * Loop through length of segment after first fragment,
     * make new header and copy data of each part and link onto chain.
     */
-   DEBUG("send fragments, ip_len=%d, mtu=%d", ip->ip_len, ifp->if_mtu );
+   TRACE("send fragments, ip_len=%d, mtu=%d", ip->ip_len, ifp->if_mtu );
    m0 = m;
    mhlen = sizeof (usn_ip_t);
    for (off = hlen + len; off < (u_short)ip->ip_len; off += len) {
@@ -387,8 +384,6 @@ ipv4_output(usn_mbuf_t *m0, usn_mbuf_t *opt, struct route *ro, int flags)
    ip->ip_sum = in_cksum(m, hlen);
 
 sendorfree:
-   DEBUG("error=%d, m=%p",error, m);
-   //return eth_output(m,(struct usn_sockaddr *)dst, ro->ro_rt); 
 
    for (m = m0; m; m = m0) {
       m0 = m->queue;

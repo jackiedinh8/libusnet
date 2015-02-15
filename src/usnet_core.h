@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Jackie Dinh <jackiedinh8@gmail.com>
+ * Copyright (c) 2014-2015 Jackie Dinh <jackiedinh8@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -96,9 +96,6 @@ usnet_init( struct nm_desc *nmd, const char *dev_name, u_int flags);
 int32
 usnet_finit( struct nm_desc *nmd);
 
-int32 
-usnet_init_internal();
-
 int32
 usnet_init_internal();
 
@@ -109,27 +106,34 @@ usnet_dispatch();
 // ip stack handling
 struct usn_sockaddr;
 struct usn_sockaddr_in;
-typedef void (*socket_handler_cb)(u_int32 fd, u_short flags, void* arg);
-typedef void (*read_handler_cb)(u_int32 fd, u_short flags, void* arg);
-typedef void (*write_handler_cb)(u_int32 fd, u_short flags, void* arg);
-typedef void (*accept_handler_cb)(u_int32 fd, struct usn_sockaddr* addr, int32 len, void* arg);
-typedef void (*error_handler_cb)(u_int32 fd, int32 error, void* arg);
+typedef void (*read_handler_cb)(u_int32 fd, 
+                       u_short flags, void* arg);
+typedef void (*write_handler_cb)(u_int32 fd, 
+                       u_short flags, void* arg);
+typedef void (*accept_handler_cb)(u_int32 fd, 
+                      struct usn_sockaddr* addr, 
+                      int32 len, void* arg);
+typedef void (*event_handler_cb)(u_int32 fd, 
+                      int32 event, void* arg);
 
-// common functionality
+// socket functionality
 int32
 usnet_socket(u_int32 dom, u_int32 type, u_int32 proto);
 
 int32 
-usnet_bind(u_int32 s, u_int32 addr, u_short port);
+usnet_bind(u_int32 fd, u_int32 addr, u_short port);
 
 int32
-usnet_listen(u_int32 fd, int32 flags, accept_handler_cb func_cb, error_handler_cb error_cb, void* arg);
+usnet_listen(u_int32 fd, int32 flags, 
+      accept_handler_cb func_cb, 
+      event_handler_cb error_cb, void* arg);
 
 int32
-usnet_set_socket_cb(u_int32 fd, int32 flags, socket_handler_cb func_cb, void* arg);
+usnet_set_callbacks(u_int32 fd, read_handler_cb read_cb, 
+      write_handler_cb write_cb, event_handler_cb event_cb);
 
 int32 
-usnet_connect();
+usnet_connect(u_int32 fd, u_int32 addr, u_short port);
 
 int32
 usnet_close_socket(u_int32 fd);
@@ -140,35 +144,55 @@ usnet_recv(u_int32 fd, u_char* buff, u_int len);
 int32 
 usnet_send(u_int32 fd, u_char* buff, u_int len);
 
+int32 
+usnet_sendto(u_int32 fd, u_char* buff, u_int len,
+            struct usn_sockaddr_in* addr);
+
 int32
 usnet_read(u_int32 fd, u_char* buff, u_int len);
 
 int32
 usnet_write(u_int32 fd, u_char* buff, u_int len);
 
-u_int32
-usnet_get_length(u_int fd);
+int32 
+usnet_writeto(u_int32 fd, u_char* buff, u_int len,
+            struct usn_sockaddr_in* addr);
+
+// other buffer functionality
+usn_buf_t*
+usnet_get_buffer_input(u_int fd);
 
 usn_buf_t*
-usnet_get_buffer(u_int fd);
+usnet_get_buffer_output(u_int fd);
+
+u_int32 
+usnet_get_length(usn_buf_t*);
+
+int32
+usnet_buffer_copyout(usn_buf_t* m, void* data, int32 datlen);
+
+int32 
+usnet_buffer_remove(usn_buf_t* m, void* data, int32 datlen);
+
+int32 
+usnet_buffer_drain(usn_buf_t* m, int32 len);
 
 int32
 usnet_write_buffer(u_int fd, usn_buf_t *buf);
 
+// other functionality
 int32
-usnet_writeto_buffer(u_int fd, usn_buf_t *buf, struct usn_sockaddr_in* addr);
+usnet_writeto_buffer(u_int fd, usn_buf_t *buf, 
+      struct usn_sockaddr_in* addr);
 
 int32
-usnet_drain_buffer(u_int32 fd);
+usnet_clear_buffer(u_int32 fd);
 
-int 
-usnet_drain(int fd, size_t len);
 
 int32
-usnet_udp_broadcast(u_int32 fd, u_char* buff, u_int32 len, struct usn_sockaddr_in* addrs, u_int32 addr_num);
+usnet_udp_broadcast(u_int32 fd, u_char* buff, u_int32 len, 
+      struct usn_sockaddr_in* addrs, u_int32 addr_num);
 
-int32
-usnet_set_callbacks(u_int32 fd, read_handler_cb read_cb, write_handler_cb write_cb, error_handler_cb error_cb);
 
 // eth functionality
 int32 

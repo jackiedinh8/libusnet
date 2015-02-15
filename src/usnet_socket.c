@@ -120,18 +120,17 @@ udp_usrreq(struct usn_socket *so, int req,
    case PRU_SEND:
       return (udp_output(inp, m, addr, control));
 
-/*
    case PRU_CONNECT:
-      if (inp->inp_faddr.s_addr != INADDR_ANY) {
+      if (inp->inp_faddr.s_addr != USN_INADDR_ANY) {
          error = EISCONN;
          break;
       }
       error = in_pcbconnect(inp, addr);
-      splx(s);
       if (error == 0)
          soisconnected(so);
       break;
 
+/*
    case PRU_CONNECT2:
       error = EOPNOTSUPP;
       break;
@@ -286,7 +285,9 @@ usnet_bind_socket(u_int32 fd, u_int32 addr, u_short port)
 }
 
 int32
-usnet_listen_socket(u_int32 fd, int32 flags, accept_handler_cb accept_cb, error_handler_cb error_cb, void* arg)
+usnet_listen_socket(u_int32 fd, int32 flags, 
+      accept_handler_cb accept_cb, 
+      event_handler_cb event_cb, void* arg)
 {
    struct usn_socket      *so = usnet_get_socket(fd);
    usn_mbuf_t             *nam;
@@ -305,7 +306,7 @@ usnet_listen_socket(u_int32 fd, int32 flags, accept_handler_cb accept_cb, error_
    cb->fd = fd;
    cb->arg = arg;
    cb->accept_cb = accept_cb;
-   cb->error_cb = error_cb;
+   cb->event_cb = event_cb;
 
    ret = so->so_usrreq(so, PRU_LISTEN, 0, nam, 0); 
    if ( ret != 0 )
@@ -329,7 +330,7 @@ int32
 usnet_set_socketcb(u_int32 fd, int32 flags, 
       read_handler_cb read_cb, 
       write_handler_cb write_cb, 
-      error_handler_cb error_cb, void* arg)
+      event_handler_cb event_cb, void* arg)
 {
    struct usn_socket      *so = usnet_get_socket(fd);
 
@@ -340,7 +341,7 @@ usnet_set_socketcb(u_int32 fd, int32 flags,
 
    so->so_appcb.read_cb = read_cb;
    so->so_appcb.write_cb = write_cb;
-   so->so_appcb.error_cb = error_cb;
+   so->so_appcb.event_cb = event_cb;
    so->so_appcb.arg = arg;
 
    return 0;
@@ -418,33 +419,33 @@ usnet_tcpwakeup_socket(struct usn_socket *so, struct sockbuf *sb)
    DEBUG("handling tcp callbacks");
 
    if (so == NULL || sb == NULL ) {
-      DEBUG("panic: null pointer");
+      ERROR("panic: null pointer");
       return -1;
    }
 
    inp = (struct inpcb*)so->so_pcb;
    if ( inp == NULL ) {
-      DEBUG("panic: null ip control block");
+      ERROR("panic: null ip control block");
       return -2;
    }
    tp = (struct tcpcb*)inp->inp_ppcb;
 
    if ( tp == NULL ) {
-      DEBUG("panic: empty tcp control block");
+      ERROR("panic: empty tcp control block");
       return -3;
    }
 
-   DEBUG("tcp info, tp_state=%hu, so_state=%hu", tp->t_state, so->so_state);
+   TRACE("tcp info, tp_state=%hu, so_state=%hu", tp->t_state, so->so_state);
 
    if ( so->so_appcb.accept_cb ) {
       // call it once.
-      DEBUG("accept callback");
+      DEBUG("accept callback, fd=%d", so->so_fd);
       so->so_appcb.accept_cb(so->so_fd, 0, 0, so->so_appcb.arg);
       so->so_appcb.accept_cb = 0;
    } else if ( so->so_state & USN_ISCONNECTED ) {
-      DEBUG("read-handler callback");
+      DEBUG("read callback, fd=%d", so->so_fd);
       if ( sb->sb_mb == NULL ) {
-         DEBUG("panic: empty buffer");
+         WARN("panic: empty buffer");
          return -4;
       }
 #ifdef DUMP_PAYLOAD
@@ -552,7 +553,7 @@ usnet_read_socket(u_int fd, u_char *buf, u_int len)
 }
 
 usn_buf_t*
-usnet_get_sobuffer(u_int32 fd)
+usnet_get_sobuffer_in(u_int32 fd)
 {
    struct usn_socket *so = usnet_get_socket(fd);
    usn_buf_t *buf = 0;
@@ -561,6 +562,23 @@ usnet_get_sobuffer(u_int32 fd)
       return buf;
    
    buf = (usn_buf_t*)so->so_rcv.sb_mb;
+
+   // FIXME: buffer management.
+   //so->so_rcv.sb_mb = NULL;
+
+   return buf;
+}
+
+usn_buf_t*
+usnet_get_sobuffer_out(u_int32 fd)
+{
+   struct usn_socket *so = usnet_get_socket(fd);
+   usn_buf_t *buf = 0;
+
+   if ( so == NULL || so->so_rcv.sb_mb == NULL )
+      return buf;
+   
+   buf = (usn_buf_t*)so->so_snd.sb_mb;
 
    // FIXME: buffer management.
    //so->so_rcv.sb_mb = NULL;
@@ -614,7 +632,7 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
 }
 
 int32
-usnet_drain_sobuffer(u_int32 fd)
+usnet_clear_sobuffer(u_int32 fd)
 {
    struct usn_socket *so = usnet_get_socket(fd);
    usn_mbuf_t *m, *n;
@@ -636,56 +654,6 @@ usnet_drain_sobuffer(u_int32 fd)
 
    return 0;
 }
-int32
-usnet_writeto_sobuffer_old(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
-{
-   struct usn_socket *so = usnet_get_socket(fd);
-   struct inpcb *pcb = 0;
-   usn_mbuf_t   *m = 0;
-   usn_ip_t     *ip;
-   usn_udphdr_t *uh;
-   int32         ret = 0;
-
-   if ( buf == NULL ) 
-      return -1;
-
-   if ( so == NULL )
-      return -2;
-
-   pcb = (struct inpcb*)so->so_pcb;
-
-   if ( pcb == NULL )
-      return -3;
-
-   m = (usn_mbuf_t*) buf;
-   if ( m->head - m->start < sizeof(*ip) + sizeof(*uh) ) {
-      // reallocate mbuf.
-      DEBUG("reallocate mbuf: notyet");
-      return -4;
-   }
-   m->head -= sizeof(*uh);
-   m->mlen += sizeof(*uh);
-   uh = mtod(m, usn_udphdr_t*);
-
-   m->head -= sizeof(*ip);
-   m->mlen += sizeof(*ip);
-   ip = mtod(m, usn_ip_t*);
-
-   uh->uh_sport = pcb->inp_lport;
-   uh->uh_dport = addr->sin_port;//pcb->inp_fport;
-
-   ip->ip_src.s_addr = pcb->inp_laddr.s_addr;
-   ip->ip_dst.s_addr = addr->sin_addr.s_addr;
-   ip->ip_len = m->mlen;
-
-   (void)so;
-   // should not call ipv4_output directly,
-   //        calling udp_output and tcp_output instead.
-   ret = ipv4_output(m, 0, 0, IP_ROUTETOIF);
-
-   return ret;
-}
-
 
 int32
 usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len, 
@@ -697,10 +665,14 @@ usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len,
 
    m = usn_get_mbuf(buff, len, 0);
 
+   if ( m == NULL )
+      return -1;
+
    for ( i=0; i<addr_num; i++ ) {
       usnet_writeto_sobuffer(fd, (usn_buf_t*)m, &addrs[i]);
    }
 
+   MFREE(m);
    return ret;
 }
 
@@ -741,10 +713,10 @@ usnet_ewakeup_socket(struct usn_socket *so, struct sockbuf *sb)
 
    DEBUG("tcp info, tp_state=%hu, so_state=%hu", tp->t_state, so->so_state);
 
-   if ( so->so_appcb.error_cb ) {
+   if ( so->so_appcb.event_cb ) {
       // call it once.
       DEBUG("event callback");
-      so->so_appcb.error_cb(so->so_fd, 1,so->so_appcb.arg);
+      so->so_appcb.event_cb(so->so_fd, 1,so->so_appcb.arg);
    }
 
    // XXX: clean mbuf if needed.

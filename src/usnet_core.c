@@ -154,7 +154,7 @@ usnet_init_internal()
 }
 
 
-// ip stack handling
+// socket functionality
 int32
 usnet_recv(u_int32 fd, u_char* buff, u_int len)
 {
@@ -167,14 +167,8 @@ usnet_send(u_int32 fd, u_char* buff, u_int len)
    return 0;
 }
 
-u_int32
-usnet_get_length(u_int fd)
-{
-   return 0;
-}
-
-int 
-usnet_drain(int fd, size_t len)
+int32 
+usnet_drain(u_int32 fd, u_int32 len)
 {
    return 0;
 }
@@ -798,10 +792,10 @@ usnet_bind(u_int32 s, u_int32 addr, u_short port)
 int32
 usnet_listen(u_int32 fd, int32 flags, 
              accept_handler_cb accept_cb, 
-             error_handler_cb error_cb, void* arg)
+             event_handler_cb event_cb, void* arg)
 {
    DEBUG("listen on socket, fd=%d", fd);
-   usnet_listen_socket(fd, flags, accept_cb, error_cb, arg);
+   usnet_listen_socket(fd, flags, accept_cb, event_cb, arg);
    return 0;
 }
 
@@ -814,10 +808,51 @@ usnet_read(u_int fd, u_char *buf, u_int len)
    return ret;
 }
 
+// buffer functionality
 usn_buf_t*
-usnet_get_buffer(u_int32 fd)
+usnet_get_buffer_input(u_int32 fd)
 {
-   return usnet_get_sobuffer(fd);
+   return usnet_get_sobuffer_in(fd);
+}
+
+usn_buf_t*
+usnet_get_buffer_output(u_int32 fd)
+{
+   return usnet_get_sobuffer_out(fd);
+}
+
+u_int32 
+usnet_get_length(usn_buf_t *m)
+{
+   return usn_get_mbuflen((usn_mbuf_t *)m);
+}
+
+int32
+usnet_buffer_copyout(usn_buf_t* m, void* data, int32 datlen)
+{
+   if (data == NULL)
+      return -1;
+
+   return usn_copy_mbuf((usn_mbuf_t *)m, 0, datlen, (caddr_t)data);
+}
+
+int32
+usnet_buffer_remove(usn_buf_t* m, void* data, int32 datlen)
+{
+   int32 copylen = 0;
+   if (data == NULL)
+      return -1;
+
+   copylen = usn_copy_mbuf((usn_mbuf_t *)m, 0, datlen, (caddr_t)data);
+   usn_mbuf_remove((usn_mbuf_t *)m, copylen);
+
+   return copylen;
+}
+
+int32
+usnet_buffer_drain(usn_buf_t* m, int32 datlen)
+{
+   return usn_mbuf_remove((usn_mbuf_t*)m, datlen);
 }
 
 int32
@@ -827,16 +862,16 @@ usnet_write_buffer(u_int32 fd, usn_buf_t *buf)
 }
 
 int32
-usnet_writeto_buffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in* addr)
+usnet_writeto_buffer(u_int32 fd, usn_buf_t *buf, 
+      struct usn_sockaddr_in* addr)
 {
    return usnet_writeto_sobuffer(fd, buf, addr);
 }
 
-
 int32
-usnet_drain_buffer(u_int32 fd)
+usnet_clear_buffer(u_int32 fd)
 {
-   return usnet_drain_sobuffer(fd);
+   return usnet_clear_sobuffer(fd);
 }
 
 int32
@@ -851,7 +886,7 @@ int32
 usnet_set_callbacks(u_int32 fd, 
                     read_handler_cb read_cb, 
                     write_handler_cb write_cb, 
-                    error_handler_cb error_cb)
+                    event_handler_cb event_cb)
 {
    return 0;
 }

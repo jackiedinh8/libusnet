@@ -65,10 +65,9 @@ struct usn_appcb {
    u_int32            fd;
    void              *arg;
    accept_handler_cb  accept_cb; 
-   socket_handler_cb  socket_cb; 
    read_handler_cb    read_cb; 
    write_handler_cb   write_cb; 
-   error_handler_cb   error_cb; 
+   event_handler_cb   event_cb; 
 };
 
 struct usn_socket;
