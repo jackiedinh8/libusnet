@@ -59,7 +59,7 @@ usnet_bind_socket(u_int32 fd, u_int32 addr, u_short port);
 int32
 usnet_listen_socket(u_int32 fd, int32 flags, 
       accept_handler_cb accept_cb, 
-      error_handler_cb error_cb, void* arg);
+      event_handler_cb event_cb, void* arg);
 
 int32
 usnet_soclose(u_int32 fd);
@@ -86,7 +86,10 @@ usnet_read_socket(u_int fd, u_char *buf, u_int len);
 
 
 usn_buf_t*
-usnet_get_sobuffer(u_int32 fd);
+usnet_get_sobuffer_in(u_int32 fd);
+
+usn_buf_t*
+usnet_get_sobuffer_out(u_int32 fd);
 
 int32
 usnet_write_sobuffer(u_int32 fd, usn_buf_t *buf);
@@ -96,7 +99,7 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf,
       struct usn_sockaddr_in *addr);
 
 int32
-usnet_drain_sobuffer(u_int32 fd);
+usnet_clear_sobuffer(u_int32 fd);
 
 int32
 usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len, 
@@ -106,6 +109,6 @@ int32
 usnet_set_socketcb(u_int32 fd, int32 flags, 
       read_handler_cb read_cb, 
       write_handler_cb write_cb, 
-      error_handler_cb error_cb, void* arg);
+      event_handler_cb event_cb, void* arg);
 
 #endif /* USNET_SOCKET_H_ */

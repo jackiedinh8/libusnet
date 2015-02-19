@@ -354,19 +354,20 @@ nospace:
    return (0);
 }
 
-void
+int32
 usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp)
 {
    u_int32 count;
+   int32   copylen = 0;
 
    if (off < 0 || len < 0) {
       DEBUG("invalid len or offset");
-      return;
+      return 0;
    }
 
    while (off > 0) {
       if (m == 0) {
-         return;
+         return 0;
       }
       if (off < m->mlen)
          break;
@@ -381,9 +382,11 @@ usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp)
       bcopy(mtod(m, caddr_t) + off, cp, count);
       len -= count;
       cp += count;
+      copylen += count;
       off = 0;
       m = m->next;
-   }   
+   }
+   return copylen;
 }
 
 u_int32 
@@ -416,3 +419,9 @@ usn_get_mbuf_actlen(usn_mbuf_t *m)
    return len;
 }
 
+int32
+usn_mbuf_remove(usn_mbuf_t *m, int32 len)
+{
+   // TODO: implementation
+   return 0;
+}

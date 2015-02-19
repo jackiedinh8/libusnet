@@ -22,7 +22,7 @@ usn_shm_alloc(usn_shm_t *shm)
         return -1;
     }
 
-    // XXX: remove the segment from the system, no futher attachment is possible.
+    // remove the segment from the system, no futher attachment is possible.
     if (shmctl(id, IPC_RMID, NULL) == -1) {
         // XXX print log
         return -2;

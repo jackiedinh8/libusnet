@@ -109,7 +109,7 @@ usn_create_pool(int size);
 usn_mbuf_t* 
 usn_copy_data(usn_mbuf_t *m, int off0, int len);
 
-void
+int32
 usn_copy_mbuf(usn_mbuf_t *m, int32 off, int32 len, caddr_t cp);
 
 #define MBUF_GET(size) usn_get_buf(0,(size))
@@ -152,5 +152,8 @@ usn_get_mbuflen(usn_mbuf_t *m);
 
 u_int32 
 usn_get_mbuf_actlen(usn_mbuf_t *m);
+
+int32
+usn_mbuf_remove(usn_mbuf_t *m, int32 len);
 
 #endif //!_USNET_BUF_H_
