@@ -38,7 +38,7 @@ read:read.o usnet_shm.o usnet_mq.o
 
 
 clean:
-	rm -rfv $(OBJS) $(BIN) read.o view.o usnet_viewmq.o
+	rm -rfv $(OBJS) $(BIN) read.o view.o usnet_viewmq.o read view
 
 love: clean all
    

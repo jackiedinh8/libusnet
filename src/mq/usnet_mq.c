@@ -166,7 +166,7 @@ int usnet_init_shmmq(usn_shmmq_t *shmmq, char* fifo_path,
       ret = 0;
 
 	assert(shm_size > C_HEAD_SIZE);
-	shmmq->_shm = usnet_create_shm_only(shm_key, shm_size);
+	shmmq->_shm = usnet_shm_create(shm_key, shm_size);
    if ( shmmq->_shm == NULL ) {
       printf("open only\n");
       shmmq->_shm = usnet_shm_open(shm_key, shm_size);

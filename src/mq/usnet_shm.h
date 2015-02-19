@@ -16,7 +16,7 @@ usn_shm_t*
 usnet_shm_open(key_t key, size_t size);
 
 usn_shm_t* 
-usnet_create_shm_only(key_t key, size_t size);
+usnet_shm_create(key_t key, size_t size);
 
 char* 
 usnet_shmat(int _id);
