@@ -43,15 +43,7 @@
 #include "usnet_buf.h"
 #include "usnet_core.h"
 #include "usnet_protosw.h"
-
-/*
- * Used to maintain information about processes that wish to be
- * notified when I/O becomes possible.
- */
-struct usn_selinfo {
-   int   si_pid;     /* process to be notified */
-   short si_flags;   /* see below */
-};
+#include "usnet_sockbuf.h"
 
 /*
  * Data structure per socket.
@@ -72,7 +64,10 @@ struct usn_appcb {
 
 struct usn_socket;
 typedef int (*pr_usrreq_func_t)(struct usn_socket*, int, usn_mbuf_t*, usn_mbuf_t*, usn_mbuf_t*);
+
+typedef struct usn_socket usn_socket_t;
 struct usn_socket {
+   /* tcp-ip part */
    short    so_type;    /* generic type, see socket.h */
    short    so_family;  /* family address */ 
 #define     so_domain so_family
@@ -81,9 +76,6 @@ struct usn_socket {
    short    so_state;      /* internal state flags USN_*, below */
    u_int32  so_fd;         /* file descriptor */
    caddr_t  so_pcb;        /* protocol control block */
-   /* user-protocol hook */
-   pr_usrreq_func_t so_usrreq;      /* user request: see list below */
-   usn_appcb_t so_appcb;                /* application specific settings */
 /*
  * Variables for connection queueing.
  * Socket where accepts occur is so_head in all subsidiary sockets.
@@ -105,32 +97,16 @@ struct usn_socket {
    u_short          so_error;      /* error affecting connection */
    int              so_pgid;       /* pgid for signals */
    u_int            so_oobmark;    /* chars to oob mark */
-/*
- * Variables for socket buffering.
- */
-   struct   sockbuf {
-      u_int          sb_cc;      /* actual chars in buffer */
-      u_int          sb_hiwat;   /* max actual char count */
-      u_int          sb_mbcnt;   /* chars of mbufs used */
-      u_int          sb_mbmax;   /* max chars of mbufs to use */
-      int            sb_lowat;   /* low water mark */
-      usn_mbuf_t     *sb_mb;     /* the mbuf chain */
-      struct usn_selinfo sb_sel; /* process selecting read/write */
-      short          sb_flags;   /* flags, see below */
-      short          sb_timeo;   /* timeout for read/write */
-   } so_rcv, so_snd;
-#define  SB_MAX      (256*1024)  /* default for max chars in sockbuf */
-#define  SB_LOCK     0x01        /* lock on data queue */
-#define  SB_WANT     0x02        /* someone is waiting to lock */
-#define  SB_WAIT     0x04        /* someone is waiting for data/space */
-#define  SB_SEL      0x08        /* someone is selecting */
-#define  SB_ASYNC 0x10           /* ASYNC I/O, need signals */
-#define  SB_NOTIFY   (SB_WAIT|SB_SEL|SB_ASYNC)
-#define  SB_NOINTR   0x40     /* operations not interruptible */
 
    //caddr_t  so_tpcb;    // Wisc. protocol control block XXX
    void  (*so_upcall) (struct usn_socket *so, caddr_t arg, int waitf);
    caddr_t  so_upcallarg;     /* Arg for above */
+
+   /* application part*/
+   pr_usrreq_func_t so_usrreq;      /* user-protocol hook */
+   usn_appcb_t so_appcb;            /* application specific settings */
+   struct sockbuf *so_rcv;
+   struct sockbuf *so_snd;
 };
 
 struct usn_ctlmsg {
@@ -282,12 +258,13 @@ sonewconn1 (struct usn_socket *head, int connstatus);
 void
 sbdrop(struct sockbuf *sb, int len);
 
-#define  sorwakeup(so)  { sowakeup((so), &(so)->so_rcv); \
+#define  sorwakeup(so)  { sowakeup((so), (so)->so_rcv); \
            if ((so)->so_upcall) \
              (*((so)->so_upcall))((so), (so)->so_upcallarg, 0 /*M_DONTWAIT*/); \
          }
 
-#define  sowwakeup(so)  sowakeup((so), &(so)->so_snd)
+#define  sowwakeup(so)  sowakeup((so), (so)->so_snd)
+
 void
 sowakeup(struct usn_socket *so, struct sockbuf *sb);
 

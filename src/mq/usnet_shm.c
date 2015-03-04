@@ -42,9 +42,9 @@ usnet_shm_open(key_t key, size_t size)
    shm->size = size;
    shm->id = id;
 
-	shm->mem = usnet_shmat(id);
+	shm->addr = (u_char*)usnet_shmat(id);
 
-   if ( shm->mem == NULL ) {
+   if ( shm->addr == NULL ) {
       free(shm);
       return 0;
    }
@@ -72,9 +72,9 @@ usnet_shm_create(key_t key, size_t size)
    shm->size = size;
    shm->id = id;
 
-	shm->mem = usnet_shmat(id);
+	shm->addr = (u_char*)usnet_shmat(id);
 
-   if ( shm->mem == NULL ) {
+   if ( shm->addr == NULL ) {
       free(shm);
       return 0;
    }
@@ -105,5 +105,43 @@ usn_shmdt(char* _mem)
 		printf("error: %s", strerror(errno));
       return;
    }
+}
+
+int32
+usn_shm_alloc(usn_shm_t *shm)
+{
+    int  id;
+   
+    if ( shm->key == 0 )
+       id = shmget(IPC_PRIVATE, shm->size, (SHM_R|SHM_W|IPC_CREAT));
+    else
+       id = shmget(shm->key, shm->size, (SHM_R|SHM_W|IPC_CREAT));
+
+    if (id == -1) {
+        // TODO print log
+        return -1;
+    }
+
+    shm->addr = (u_char*)shmat(id, NULL, 0);
+
+    if (shm->addr == (void *) -1) {
+        // TODO print log
+        return -1;
+    }
+
+    // remove the segment from the system, no futher attachment is possible.
+    if (shmctl(id, IPC_RMID, NULL) == -1) {
+        // TODO print log
+        return -2;
+    }
+
+    return (shm->addr == (void *) -1) ? -3 : 0;
+}
+
+void usn_shm_free(usn_shm_t *shm)
+{
+    if (shmdt(shm->addr) == -1) {
+        // TODO print log
+    }
 }
 

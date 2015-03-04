@@ -342,7 +342,7 @@ udp_input(usn_mbuf_t *m, u_int iphlen)
   
    // insert msg into queue. 
    m->flags |= BUF_DATA;
-   if (sbappendaddr(&inp->inp_socket->so_rcv, 
+   if (sbappendaddr(inp->inp_socket->so_rcv, 
           (struct usn_sockaddr *)&g_udp_in, m, opts) == 0) {
       g_udpstat.udps_fullsock++;
       goto bad;

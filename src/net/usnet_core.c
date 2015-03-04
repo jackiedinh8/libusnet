@@ -46,6 +46,13 @@
 #include "usnet_slab.h"
 #include "usnet_tcp_var.h"
 #include "usnet_tcp_timer.h"
+#include "usnet_msg.h"
+#include "usnet_socket_cache.h"
+#include "usnet_event.h"
+#include "usnet_event_net.h"
+#include "usnet_event_process.h"
+#include "usnet_api.h"
+#include "usnet_api_net.h"
 
 struct nm_desc *g_nmd;
 #ifdef TIME_NANO
@@ -64,12 +71,14 @@ struct usn_glob_conf g_config;
 struct ipq g_ipq;
 
 static int do_abort = 0;
+static int do_abort_app = 0;
 
 static void
 sigint_h(int sig)
 {
 	(void)sig;  /* UNUSED */
 	do_abort = 1;
+	do_abort_app = 1;
 	signal(SIGINT, SIG_DFL);
 }
 
@@ -124,6 +133,10 @@ usnet_init( struct nm_desc *gg_nmd, const char *dev_name, u_int flags)
    usnet_tcp_init();
    usnet_ipv4_init();
    usnet_socket_init();
+   usnet_sockbuf_init();
+   usnet_socketcache_init();
+   usnet_tcpev_init();
+   usnet_apimq_init();
 
    return nmd;
 }
@@ -153,6 +166,15 @@ usnet_init_internal()
    return 0;
 }
 
+int32 
+usnet_setup_process()
+{
+   usnet_sockbuf_init();
+   usnet_socketcache_init();
+   usnet_tcpev_init();
+   usnet_apimq_init();
+   return 0;
+}
 
 // socket functionality
 int32
@@ -633,7 +655,7 @@ usnet_frame_recv(struct netmap_ring *ring, u_int limit, int dump)
    return (rx);
 }
 
-int
+int32
 usnet_setup(int argc, char *argv[])
 {
    //struct nm_desc     *nmd;
@@ -676,16 +698,19 @@ usnet_setup(int argc, char *argv[])
    }
    return 0;
 }
+
 void
 usnet_dispatch()
 {
    struct netmap_if   *nifp;
-   struct pollfd       fds;
+   struct pollfd       fds[3];
    struct netmap_ring *rxring;
    int                 ret;
 
    nifp = g_nmd->nifp;
-   fds.fd = g_nmd->fd;
+   fds[0].fd = g_nmd->fd;
+   fds[1].fd = g_tcpev_app2net_mq->_fd;
+   fds[2].fd = g_api_app2net_mq->_fd;
 
    while(!do_abort) {
 
@@ -695,9 +720,13 @@ usnet_dispatch()
        gettimeofday(&g_time,0);
 #endif
        //fds.events = POLLIN | POLLOUT;
-       fds.events = POLLIN;
-       fds.revents = 0;
-       ret = poll(&fds, 1, 5000);
+       fds[0].events = POLLIN;
+       fds[0].revents = 0;
+       fds[1].events = POLLIN;
+       fds[0].revents = 0;
+       fds[2].events = POLLIN;
+       fds[0].revents = 0;
+       ret = poll(fds, 3, 5000);
        if (ret <= 0 ) {
           /*
           DEBUG("poll %s ev %x %x rx @%d:%d:%d ", 
@@ -719,30 +748,16 @@ usnet_dispatch()
           tcp_slowtimo();
           continue;
        }
-       if (fds.revents & POLLERR) {
+
+       // tasks from message queue
+       if (fds[0].revents & POLLERR) {
           struct netmap_ring *rx = NETMAP_RXRING(nifp, g_nmd->cur_rx_ring);
           (void)rx;
 			 DEBUG("error on em1, rx [%d,%d,%d]",
 					 rx->head, rx->cur, rx->tail);
        }
-/*       
-       if (fds.revents & POLLOUT) {
-          for (int j = g_nmd->first_tx_ring; 
-                   j <= g_nmd->last_tx_ring; j++) {
-             txring = NETMAP_RXRING(nifp, j);
 
-				 DEBUG("Ring info tx(%d), head=%d, cur=%d, tail=%d", 
-                   j, txring->head, txring->cur, txring->tail); 
-
-             if (nm_ring_empty(txring)) {
-                continue;
-             }
-
-             //send_packets(rxring, 512, 1);
-          }
-       }
-*/
-       if (fds.revents & POLLIN) {
+       if (fds[0].revents & POLLIN) {
           int j;
           for (j = g_nmd->first_rx_ring; 
                    j <= g_nmd->last_rx_ring; j++) {
@@ -758,10 +773,61 @@ usnet_dispatch()
              usnet_frame_recv(rxring, 512, 1);
           }
        }
+
+       // tcpev jobs from message queue
+       if (fds[1].revents & POLLERR) {
+			 ERROR("error on message queue");
+       }
+
+       if (fds[1].revents & POLLIN) {
+          usnet_tcpev_net();
+       }
+
+       // api jobs from message queue
+       if (fds[2].revents & POLLERR) {
+			 ERROR("error on message queue");
+       }
+
+       if (fds[2].revents & POLLIN) {
+          usnet_tcpapi_net();
+       }
+
        tcp_fasttimo();
        tcp_slowtimo();
    }
    nm_close(g_nmd);
+   return;
+}
+
+void
+usnet_dispatch_process()
+{
+   struct pollfd       fds[1];
+   int                 ret;
+
+   fds[0].fd = g_tcpev_net2app_mq->_fd;
+
+   while(!do_abort_app) {
+
+       fds[0].events = POLLIN;
+       fds[0].revents = 0;
+       ret = poll(fds, 1, 5000);
+       if (ret <= 0 ) {
+          DEBUG("poll %s ev %x %x", 
+            ret <= 0 ? "timeout" : "ok",
+            fds[0].events,
+            fds[0].revents);
+          continue;
+       }
+       // tcpev jobs from message queue
+       if (fds[0].revents & POLLERR) {
+			 ERROR("error on message queue");
+       }
+       if (fds[0].revents & POLLIN) {
+          usnet_tcpev_process(g_tcpev_net2app_mq);
+       }
+   }
+
    return;
 }
 

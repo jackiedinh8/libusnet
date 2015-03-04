@@ -47,6 +47,8 @@
 #include "usnet_in_pcb.h"
 #include "usnet_common.h"
 #include "usnet_ip_out.h"
+#include "usnet_msg.h"
+#include "usnet_socket_evhandler.h"
 
 extern struct inpcb *g_tcp_last_inpcb;
 
@@ -116,7 +118,7 @@ tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
 	struct route *ro = 0;
    DEBUG("send reply back");
 	if (tp) {
-		win = sbspace(&tp->t_inpcb->inp_socket->so_rcv);
+		win = sbspace(tp->t_inpcb->inp_socket->so_rcv);
 		ro = &tp->t_inpcb->inp_route;
 	}
 	if (m == 0) {
@@ -161,7 +163,7 @@ tcp_respond(struct tcpcb *tp, struct tcpiphdr *ti,
 	ti->ti_sum = in_cksum(m, tlen);
 	((usn_ip_t *)ti)->ip_len = tlen;
 	((usn_ip_t *)ti)->ip_ttl = g_ip_defttl;
-	(void) ipv4_output(m, NULL, ro, 0);
+	ipv4_output(m, NULL, ro, 0);
    return;
 }
 
@@ -217,6 +219,8 @@ struct tcpcb* tcp_drop(struct tcpcb* tp, u_int error)
 
 	if (TCPS_HAVERCVDSYN(tp->t_state)) {
 		tp->t_state = TCPS_CLOSED;
+      usnet_tcpin_ewakeup(so, USN_TCP_IN, 
+            USN_TCPST_CLOSED, 0);
 		tcp_output(tp);
 		g_tcpstat.tcps_drops++;
 	} else
@@ -253,7 +257,7 @@ tcp_close(struct tcpcb *tp)
 	//
 	// Don't update the default route's characteristics and don't
 	// update anything that the user "locked".
-	if (SEQ_LT(tp->iss + so->so_snd.sb_hiwat * 16, tp->snd_max) &&
+	if (SEQ_LT(tp->iss + so->so_snd->sb_hiwat * 16, tp->snd_max) &&
 	    (rt = inp->inp_route.ro_rt) &&
 	    ((struct usn_sockaddr_in *)rt_key(rt))->sin_addr.s_addr != USN_INADDR_ANY) {
 		u_long i;

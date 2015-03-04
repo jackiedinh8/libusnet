@@ -5,9 +5,9 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
-#include <stdio.h>
 
 #include "usnet_mq.h"
+#include "usnet_log.h"
 
 void print_shmmq(usn_shmmq_t *mq) 
 {
@@ -15,7 +15,7 @@ void print_shmmq(usn_shmmq_t *mq)
           "mem=%p, _enqueued_msg_cnt=%p, _dequeued_msg_cnt=%p, head=%p, tail=%p, block=%p, block_size=%d \n", 
          mq->_shm->key, mq->_shm->size,
          mq->_fd, mq->_wait_sec, mq->_wait_usec,
-         mq->_shm->mem, mq->_enqueued_msg_cnt, mq->_dequeued_msg_cnt,
+         mq->_shm->addr, mq->_enqueued_msg_cnt, mq->_dequeued_msg_cnt,
          mq->_head, mq->_tail, mq->_block, mq->_block_size
          );
    printf("head=%d, tail=%d, enqueued_msg_cnt=%d, dequeued_msg_cnt=%d\n",
@@ -114,14 +114,14 @@ usnet_adapctl_addload(usn_adapctl_t *ctl,
 }
 
 
-int usnet_init_shmmq(usn_shmmq_t *shmmq, char* fifo_path, 
+int32 usnet_init_shmmq(usn_shmmq_t *shmmq, char* fifo_path, 
       unsigned wait_sec, unsigned wait_usec, 
       int shm_key, unsigned shm_size)
 {
-   int ret = 0;
-   int val;
-   char *mem_addr = NULL;
-   int   mode = 0666 | O_NONBLOCK | O_NDELAY;
+   int32 ret = 0;
+   int32 val;
+   u_char *mem_addr = NULL;
+   int32 mode = 0666 | O_NONBLOCK | O_NDELAY;
 
    if ( shmmq == NULL ) 
       return -1;
@@ -174,11 +174,11 @@ int usnet_init_shmmq(usn_shmmq_t *shmmq, char* fifo_path,
 		   ret = -1;
          goto done;
    	}
-      mem_addr = shmmq->_shm->mem;
+      mem_addr = shmmq->_shm->addr;
       printf("goto setup\n");
       goto setup;
 	} else
-      mem_addr = shmmq->_shm->mem;
+      mem_addr = shmmq->_shm->addr;
 
    // init head portion of shared meme.
    memset(mem_addr, 0, C_HEAD_SIZE * 2 + sizeof(*shmmq->_adaptive_ctrl));
@@ -217,15 +217,16 @@ usnet_release_shmmq(usn_shmmq_t *mq)
    // TODO
 }
 
-int usnet_write_mq(usn_shmmq_t *mq, const void* data, unsigned data_len, unsigned flow)
+int32
+usnet_write_mq(usn_shmmq_t *mq, const void* data, u_int32 data_len, u_int32 flow)
 {
-	unsigned head;// = *_head;
-	unsigned tail;// = *_tail;	
-	unsigned free_len;// = head>tail? head-tail: head+_block_size-tail;
-	unsigned tail_len;// = _block_size - tail;
+	u_int32 head;// = *_head;
+	u_int32 tail;// = *_tail;	
+	u_int32 free_len;// = head>tail? head-tail: head+_block_size-tail;
+	u_int32 tail_len;// = _block_size - tail;
 	char sHead[C_HEAD_SIZE] = {0};
-	unsigned total_len;// = data_len+C_HEAD_SIZE;
-   int ret = 0;
+	u_int32 total_len;// = data_len+C_HEAD_SIZE;
+   int32 ret = 0;
 
    if ( mq == NULL )
       return -1;
@@ -248,8 +249,8 @@ int usnet_write_mq(usn_shmmq_t *mq, const void* data, unsigned data_len, unsigne
       goto done;
 	}
 
-	memcpy(sHead, &total_len, sizeof(unsigned));
-	memcpy(sHead+sizeof(unsigned), &flow, sizeof(unsigned));
+	memcpy(sHead, &total_len, sizeof(u_int32));
+	memcpy(sHead+sizeof(u_int32), &flow, sizeof(u_int32));
 
 	//	second, if tail space > 8+len
 	//	copy 8 byte, copy data
@@ -267,15 +268,15 @@ int usnet_write_mq(usn_shmmq_t *mq, const void* data, unsigned data_len, unsigne
 		memcpy(mq->_block+tail, sHead, C_HEAD_SIZE);
 
 		//	copy tail-8
-		unsigned first_len = tail_len - C_HEAD_SIZE;
+		u_int32 first_len = tail_len - C_HEAD_SIZE;
 		memcpy(mq->_block+tail+ C_HEAD_SIZE, data, first_len);
 
 		//	copy left
-		unsigned second_len = data_len - first_len;
+		u_int32 second_len = data_len - first_len;
 		memcpy(mq->_block, ((char*)data) + first_len, second_len);
 
         // XXX
-		int itmp = *mq->_tail + data_len + C_HEAD_SIZE - mq->_block_size;
+		int32 itmp = *mq->_tail + data_len + C_HEAD_SIZE - mq->_block_size;
 		*mq->_tail = itmp;
 
 		//*_tail += data_len + C_HEAD_SIZE;
@@ -289,7 +290,7 @@ int usnet_write_mq(usn_shmmq_t *mq, const void* data, unsigned data_len, unsigne
 		memcpy(mq->_block+tail, sHead, tail_len);
 
 		//	copy 8-tail byte
-		unsigned second_len = C_HEAD_SIZE - tail_len;
+		u_int32 second_len = C_HEAD_SIZE - tail_len;
 		memcpy(mq->_block, sHead + tail_len, second_len);
 
 		//	copy data
@@ -310,12 +311,13 @@ done:
 
 
 
-int usnet_shmmq_enqueue(usn_shmmq_t *mq, 
+int32 
+usnet_shmmq_enqueue(usn_shmmq_t *mq, 
       const time_t uiCurTime, const void* data, 
-      unsigned data_len, unsigned flow)
+      u_int32 data_len, u_int32 flow)
 {
-   int ret = 0;
-   unsigned int uiFactor;
+   int32 ret = 0;
+   u_int32 uiFactor;
 
    if ( mq == NULL )
       return -1;
@@ -338,9 +340,10 @@ int usnet_shmmq_enqueue(usn_shmmq_t *mq,
        ret = write(mq->_fd, "\0", 1);
     }
 #ifdef USE_ADAPTIVE_CONTROL
-//    else
-//    {
-//	LOG(ERROR, "CFifoSyncMQ::enqueue: write to _fd not happen, _fd=%d, _count:%d, uiFactor:%d", _fd, _count, uiFactor);
+//   else
+//   {
+//	     ERROR("CFifoSyncMQ::enqueue: write to _fd not happen,"
+//            " _fd=%d, _count:%d, uiFactor:%d", _fd, _count, uiFactor);
 //   }
 #endif 
 
@@ -356,21 +359,22 @@ int usnet_shmmq_enqueue(usn_shmmq_t *mq,
     return 0;
 }
 
-int usnet_read_mq(usn_shmmq_t *mq, void* buf, unsigned buf_size, 
-      unsigned *data_len, unsigned *flow)
+int32
+usnet_read_mq(usn_shmmq_t *mq, void* buf, u_int32 buf_size, 
+      u_int32 *data_len, u_int32 *flow)
 {
    int ret = 0;
 	char sHead[C_HEAD_SIZE];
-	unsigned used_len;
-	unsigned head = *mq->_head;
-	unsigned tail = *mq->_tail;
+	u_int32 used_len;
+	u_int32 head = *mq->_head;
+	u_int32 tail = *mq->_tail;
 
    // get lock
 	//_sem->wait(_sem_index);
 
 	if (head == tail)
 	{
-		data_len = 0;
+		*data_len = 0;
 		ret = 0;
       goto done;
 	}
@@ -380,8 +384,8 @@ int usnet_read_mq(usn_shmmq_t *mq, void* buf, unsigned buf_size,
 	//	if head + 8 > block_size
 	if (head+C_HEAD_SIZE > mq->_block_size)
 	{
-		unsigned first_size = mq->_block_size - head;
-		unsigned second_size = C_HEAD_SIZE - first_size;
+		u_int32 first_size = mq->_block_size - head;
+		u_int32 second_size = C_HEAD_SIZE - first_size;
 		memcpy(sHead, mq->_block + head, first_size);
 		memcpy(sHead + first_size, mq->_block, second_size);
 		head = second_size;
@@ -393,8 +397,8 @@ int usnet_read_mq(usn_shmmq_t *mq, void* buf, unsigned buf_size,
 	}
 	
 	//	get meta data
-	unsigned total_len  = *(unsigned*) (sHead);
-	*flow = *(unsigned*) (sHead+sizeof(unsigned));
+	u_int32 total_len  = *(u_int32*) (sHead);
+	*flow = *(u_int32*) (sHead+sizeof(u_int32));
 
 	assert(total_len <= used_len);
 	
@@ -402,14 +406,14 @@ int usnet_read_mq(usn_shmmq_t *mq, void* buf, unsigned buf_size,
 
 	if (*data_len > buf_size)
    {
-      printf("data_len is greater than buf_size, data_len=%d, buf_size=%d", *data_len, buf_size);
+      ERROR("data_len is greater than buf_size, data_len=%d, buf_size=%d", *data_len, buf_size);
 		ret = -1;
       goto done;
     }
 	if (head+*data_len > mq->_block_size)	//	
 	{
-		unsigned first_size = mq->_block_size - head;
-		unsigned second_size = *data_len - first_size;
+		u_int32 first_size = mq->_block_size - head;
+		u_int32 second_size = *data_len - first_size;
 		memcpy(buf, mq->_block + head, first_size);
 		memcpy(((char*)buf) + first_size, mq->_block, second_size);
 		*mq->_head = second_size;
@@ -458,8 +462,8 @@ int usnet_shmmq_select_fifo(int _fd, unsigned _wait_sec,
 	}
 }
 
-int usnet_shmmq_dequeue(usn_shmmq_t *mq, void* buf, 
-      unsigned buf_size, unsigned *data_len, unsigned *flow)
+int32 usnet_shmmq_dequeue(usn_shmmq_t *mq, void* buf, 
+      u_int32 buf_size, u_int32 *data_len, u_int32 *flow)
 {
    int ret;
 
@@ -468,7 +472,7 @@ int usnet_shmmq_dequeue(usn_shmmq_t *mq, void* buf,
 
 	//	first, try to get data from queue.
    ret = usnet_read_mq(mq, buf, buf_size, data_len, flow); 
-	if (ret || data_len)
+	if (ret || *data_len)
 		return ret;
 
 	//	second, if no data, wait on fifo.
@@ -483,12 +487,12 @@ int usnet_shmmq_dequeue(usn_shmmq_t *mq, void* buf,
 
 	// third, if fifo activated, read the signals.
    {
-	   static const unsigned buf_len = 1<<10;
-   	char buffer[buf_len];
+	   static const int32 buf_len = 1<<10;
+   	u_char buffer[buf_len];
    	ret = read(mq->_fd, buffer, buf_len);
    	if (ret < 0 && errno != EAGAIN)
       {
-         printf("read error, ret=%d, errno=%d", ret, errno);
+         ERROR("read error, ret=%d, errno=%d", ret, errno);
          return -1;
       }
    }	
@@ -497,9 +501,9 @@ int usnet_shmmq_dequeue(usn_shmmq_t *mq, void* buf,
 }
 
 
-void usnet_shmmq_clear_flag(int _fd) 
+void usnet_shmmq_clear_flag(int32 _fd) 
 {
-    static char buffer[1];
+    static u_char buffer[1];
     read(_fd, buffer, 1);
 }
 

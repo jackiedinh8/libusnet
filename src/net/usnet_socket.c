@@ -41,10 +41,12 @@
 #include "usnet_tcp_seq.h"
 #include "usnet_tcp_subr.h"
 #include "usnet_tcp_debug.h"
+#include "usnet_socket_cache.h"
 
 u_long g_udp_sendspace = 9216;      /* really max datagram size */
 u_long g_udp_recvspace = 40 * (1024 + sizeof(struct usn_sockaddr_in));
 u_long g_sb_max = SB_MAX;     /* patchable */
+
 int    g_fds_idx;
 struct usn_socket* g_fds[MAX_SOCKETS];
 
@@ -198,7 +200,7 @@ release:
 }
 
 
-
+/*
 struct usn_socket*
 usnet_get_socket(u_int32 fd)
 {
@@ -206,29 +208,26 @@ usnet_get_socket(u_int32 fd)
       return NULL;
    return g_fds[fd];
 }
+*/
 
 int32
 usnet_create_socket(u_int32 dom, struct usn_socket **aso, u_int32 type, u_int32 proto)
 {
-   int                i, error;
-   struct usn_socket *so;
-   long               lproto = proto;
-
-   for ( i=1; i<MAX_SOCKETS; i++) {
-      if ( g_fds[i] == 0 ) break;
-   }
-   if ( i >= MAX_SOCKETS )
-      return -1;
+   usn_socket_t *so;
+   int32         error;
+   long          lproto = proto;
 
    // check proto and dom.
    if ( dom != USN_AF_INET     // tcp/ip protocol
         || ( type != SOCK_STREAM && type != SOCK_DGRAM ) ) { // tcp,udp
-      return 0;
+      return -1;
    }
 
-   // TODO: using multi-hash, and find empty socket slot.
-   so = (struct usn_socket*) usn_get_buf(0,sizeof(*so));
-   bzero((caddr_t)so, sizeof(*so));
+   so = usnet_get_socket(&g_socket_cache);
+   if ( so == NULL )
+      return -2;
+
+   //bzero((caddr_t)so, sizeof(*so));
    so->so_type = type;
    so->so_family = dom;
    so->so_pcb = 0;
@@ -238,23 +237,44 @@ usnet_create_socket(u_int32 dom, struct usn_socket **aso, u_int32 type, u_int32 
    else if ( type == SOCK_STREAM )
       so->so_usrreq = tcp_usrreq;
 
+   so->so_snd = usnet_get_sockbuf(&g_sosnd_cache, so->so_fd);
+
+   if ( so->so_snd == NULL ) {
+      DEBUG("failed to alloc mem for so_snd");
+      usnet_free_socket(&g_socket_cache, so->so_fd);
+      goto release;
+   }
+
+   so->so_rcv = usnet_get_sockbuf(&g_sorcv_cache, so->so_fd);
+   if ( so->so_rcv == NULL ) {
+      DEBUG("failed to alloc mem for so_rcv");
+      usnet_free_socket(&g_socket_cache, so->so_fd);
+      goto release;
+   }
+
    error = so->so_usrreq(so, PRU_ATTACH, (usn_mbuf_t *)0, 
                           (usn_mbuf_t *)lproto, (usn_mbuf_t *)0);
 
-   if ( error < 0 )
-      return -1;
+   if ( error < 0 ) {
+      DEBUG("failed to attach, error=%d", error);
+      usnet_free_socket(&g_socket_cache, so->so_fd);
+      goto release;
+   }
 
-   g_fds[i] = so;
    *aso = so;
-   so->so_fd = i;
 
-   return i;
+   return so->so_fd;
+
+release:
+   usnet_free_sockbuf(&g_sorcv_cache, so->so_fd);
+   usnet_free_sockbuf(&g_sosnd_cache, so->so_fd);
+   return -3;
 }
 
 int32
 usnet_bind_socket(u_int32 fd, u_int32 addr, u_short port)
 {
-   struct usn_socket      *so = usnet_get_socket(fd);
+   usn_socket_t           *so = usnet_find_socket(&g_socket_cache, fd);
    struct usn_sockaddr_in *saddr;
    usn_mbuf_t             *nam;
    int                     ret = 0;
@@ -289,7 +309,7 @@ usnet_listen_socket(u_int32 fd, int32 flags,
       accept_handler_cb accept_cb, 
       event_handler_cb event_cb, void* arg)
 {
-   struct usn_socket      *so = usnet_get_socket(fd);
+   usn_socket_t      *so = usnet_find_socket(&g_socket_cache, fd);
    usn_mbuf_t             *nam;
    struct usn_appcb       *cb;
    int    ret = 0;
@@ -332,7 +352,7 @@ usnet_set_socketcb(u_int32 fd, int32 flags,
       write_handler_cb write_cb, 
       event_handler_cb event_cb, void* arg)
 {
-   struct usn_socket      *so = usnet_get_socket(fd);
+   usn_socket_t      *so = usnet_find_socket(&g_socket_cache, fd);
 
    if ( so == NULL ) {
       DEBUG("panic: socket is null");
@@ -476,7 +496,7 @@ usnet_udpwakeup_socket(struct inpcb* inp)
    if ( so == NULL )
       return 0;
 
-   sb = &so->so_rcv;
+   sb = so->so_rcv;
    if ( sb == NULL )
       return 0;
 
@@ -538,10 +558,10 @@ out:
 int32
 usnet_read_socket(u_int fd, u_char *buf, u_int len)
 {
-   struct usn_socket      *so = usnet_get_socket(fd);
+   usn_socket_t           *so = usnet_find_socket(&g_socket_cache, fd);
    int32 ret = 0;
    
-   if ( so == NULL || so->so_rcv.sb_mb == NULL ) {
+   if ( so == NULL || so->so_rcv->sb_mb == NULL ) {
       buf = NULL; 
       return 0;
    }
@@ -555,13 +575,13 @@ usnet_read_socket(u_int fd, u_char *buf, u_int len)
 usn_buf_t*
 usnet_get_sobuffer_in(u_int32 fd)
 {
-   struct usn_socket *so = usnet_get_socket(fd);
+   usn_socket_t           *so = usnet_find_socket(&g_socket_cache, fd);
    usn_buf_t *buf = 0;
 
-   if ( so == NULL || so->so_rcv.sb_mb == NULL )
+   if ( so == NULL || so->so_rcv->sb_mb == NULL )
       return buf;
    
-   buf = (usn_buf_t*)so->so_rcv.sb_mb;
+   buf = (usn_buf_t*)so->so_rcv->sb_mb;
 
    // FIXME: buffer management.
    //so->so_rcv.sb_mb = NULL;
@@ -572,13 +592,13 @@ usnet_get_sobuffer_in(u_int32 fd)
 usn_buf_t*
 usnet_get_sobuffer_out(u_int32 fd)
 {
-   struct usn_socket *so = usnet_get_socket(fd);
+   usn_socket_t           *so = usnet_find_socket(&g_socket_cache, fd);
    usn_buf_t *buf = 0;
 
-   if ( so == NULL || so->so_rcv.sb_mb == NULL )
+   if ( so == NULL || so->so_rcv->sb_mb == NULL )
       return buf;
    
-   buf = (usn_buf_t*)so->so_snd.sb_mb;
+   buf = (usn_buf_t*)so->so_snd->sb_mb;
 
    // FIXME: buffer management.
    //so->so_rcv.sb_mb = NULL;
@@ -596,7 +616,7 @@ usnet_write_sobuffer(u_int fd, usn_buf_t *buf)
 int32
 usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
 {
-   struct usn_socket *so = usnet_get_socket(fd);
+   usn_socket_t *so = usnet_find_socket(&g_socket_cache, fd);
    struct inpcb *pcb = 0;
    usn_mbuf_t   *m = 0;
    usn_mbuf_t   *nam = 0;
@@ -634,13 +654,13 @@ usnet_writeto_sobuffer(u_int32 fd, usn_buf_t *buf, struct usn_sockaddr_in *addr)
 int32
 usnet_clear_sobuffer(u_int32 fd)
 {
-   struct usn_socket *so = usnet_get_socket(fd);
-   usn_mbuf_t *m, *n;
+   usn_socket_t *so = usnet_find_socket(&g_socket_cache, fd);
+   usn_mbuf_t   *m, *n;
 
    if ( so == NULL )
       return -1;
 
-   m = so->so_rcv.sb_mb;
+   m = so->so_rcv->sb_mb;
 
    while (m) {
       n = m;
@@ -648,9 +668,9 @@ usnet_clear_sobuffer(u_int32 fd)
       usn_free_cmbuf(n); 
    }
 
-   so->so_rcv.sb_mb = 0;
-   so->so_rcv.sb_cc = 0;
-   so->so_rcv.sb_mbcnt = 0;
+   so->so_rcv->sb_mb = 0;
+   so->so_rcv->sb_cc = 0;
+   so->so_rcv->sb_mbcnt = 0;
 
    return 0;
 }
@@ -679,7 +699,7 @@ usnet_udp_sobroadcast(u_int32 fd, u_char* buff, u_int32 len,
 int32
 usnet_soclose(u_int32 fd)
 {
-   struct usn_socket *so = usnet_get_socket(fd);
+   usn_socket_t *so = usnet_find_socket(&g_socket_cache, fd);
 
    if ( so == NULL )
       return -1;

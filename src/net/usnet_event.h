@@ -23,31 +23,32 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * @(#)usnet_api.h
+ * @(#)usnet_event.h
  */
 
-#ifndef _USNET_API_H_
-#define _USNET_API_H_
+#ifndef _USNET_EVENT_H_
+#define _USNET_EVENT_H_
 
 #include "usnet_core.h"
+#include "usnet_mq.h"
 
-extern usn_shmmq_t *g_api_app2net_mq;
-extern usn_shmmq_t *g_api_net2app_mq;
-
-int32
-usnet_apimq_init();
+extern usn_shmmq_t *g_tcpev_net2app_mq;
+extern usn_shmmq_t *g_tcpev_app2net_mq;
 
 int32
-usnet_api_a2n_enqueue(u_int32 fd, u_char type, u_char event, u_char *body, int32 len);
+usnet_tcpev_init();
 
 int32
-usnet_api_a2n_dequeue(u_char *buf, u_int32 buf_size, u_int32 *data_len);
+usnet_tcpev_a2n_enqueue(u_int32 fd, u_char type, u_char event, u_char *body, int32 len);
 
 int32
-usnet_api_n2a_enqueue(u_int32 fd, u_char type, u_char event, u_char *body, int32 len);
+usnet_tcpev_a2n_dequeue(u_char *buf, u_int32 buf_size, u_int32 *data_len);
 
 int32
-usnet_api_n2a_dequeue(u_char *buf, u_int32 buf_size, u_int32 *data_len);
+usnet_tcpev_n2a_enqueue(u_int32 fd, u_char type, u_char event, u_char *body, int32 len);
+
+int32
+usnet_tcpev_n2a_dequeue(u_char *buf, u_int32 buf_size, u_int32 *data_len);
 
 
 #endif  //!_USNET_API_H_

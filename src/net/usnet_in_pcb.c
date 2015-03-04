@@ -329,7 +329,7 @@ int in_pcbdetach (struct inpcb *inp)
    sofree(so);
 
    if (inp->inp_options)
-      (void)usn_free_mbuf(inp->inp_options);
+      usn_free_mbuf(inp->inp_options);
 
    if (inp->inp_route.ro_rt)
       rtfree(inp->inp_route.ro_rt);

@@ -45,6 +45,8 @@
 #include "usnet_tcp_fsm.h"
 #include "usnet_tcp_debug.h"
 #include "usnet_route.h"
+#include "usnet_msg.h"
+#include "usnet_socket_evhandler.h"
 
 int g_tcprexmtthresh = 3;
 struct	tcpiphdr g_tcp_saveti;
@@ -76,7 +78,9 @@ struct	inpcb *g_tcp_last_inpcb = &g_tcb;
 		flags = (ti)->ti_flags & TH_FIN; \
 		g_tcpstat.tcps_rcvpack++;\
 		g_tcpstat.tcps_rcvbyte += (ti)->ti_len;\
-		sbappend(&(so)->so_rcv, (m)); \
+		sbappend((so)->so_rcv, (m)); \
+      usnet_tcpin_rwakeup(so, \
+               USN_TCP_IN, USN_TCPEV_READ, 0);\
 		tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);\
 		sorwakeup(so); \
 	} else { \
@@ -128,8 +132,7 @@ tcp_reass(struct tcpcb *tp,struct tcpiphdr *ti, usn_mbuf_t *m)
 	}
 	g_tcpstat.tcps_rcvoopack++;
 	g_tcpstat.tcps_rcvoobyte += ti->ti_len;
-	REASS_MBUF(ti) = m;		// XXX
-
+	REASS_MBUF(ti) = m; // XXX: wrong assumtion dst and src port for mbuf pointer
 
 	// While we overlap succeeding segments trim them or,
 	// if they are completely covered, dequeue them.
@@ -151,9 +154,7 @@ tcp_reass(struct tcpcb *tp,struct tcpiphdr *ti, usn_mbuf_t *m)
 		usn_free_mbuf(m);
 	}
 
-
-	// Stick new segment in its place.
-   // FIXME
+	// FIXME:  Stick new segment in its place.
 	//insque(ti, q->ti_prev);
 
 present:
@@ -173,14 +174,15 @@ present:
 		//remque(ti);
 		m = REASS_MBUF(ti);
 		ti = (struct tcpiphdr *)ti->ti_next;
-		if (so->so_state & USN_CANTRCVMORE)
+		if (so->so_state & USN_CANTRCVMORE) {
 			usn_free_mbuf(m);
-		else
-			sbappend(&so->so_rcv, m);
+      } else {
+			sbappend(so->so_rcv, m);
+      }
 	} while (ti != (struct tcpiphdr *)tp && ti->ti_seq == tp->rcv_nxt);
 
-   // FIXME: callbacks
 	sorwakeup(so);
+   usnet_tcpin_rwakeup(so, USN_TCP_IN, USN_TCPEV_READ, m);
 	return (flags);
 }
 
@@ -210,9 +212,9 @@ tcp_input(usn_mbuf_t *m, int iphlen)
 
    (void)needoutput;
 	g_tcpstat.tcps_rcvtotal++;
+ 
 	// Get IP and TCP header together in first mbuf.
 	// Note: IP leaves IP header in first mbuf.
-
 	ti = mtod(m, struct tcpiphdr *);
 	if (iphlen > sizeof (usn_ip_t))
 		ip_stripoptions(m, (usn_mbuf_t *)0);
@@ -365,15 +367,16 @@ findpcb:
 			inp = (struct inpcb *)so->so_pcb;
 			inp->inp_laddr = ti->ti_dst;
 			inp->inp_lport = ti->ti_dport;
-#if BSD>=43
+
+         // BSD >= 4.3
 			inp->inp_options = ip_srcroute();
-#endif
+
 			tp = intotcpcb(inp);
 			tp->t_state = TCPS_LISTEN;
 
 			// Compute proper scaling value from buffer space
 			while (tp->request_r_scale < TCP_MAX_WINSHIFT &&
-			   TCP_MAXWIN << tp->request_r_scale < so->so_rcv.sb_hiwat)
+			   TCP_MAXWIN << tp->request_r_scale < so->so_rcv->sb_hiwat)
 				tp->request_r_scale++;
 		}
 	}
@@ -432,8 +435,8 @@ findpcb:
 				g_tcpstat.tcps_rcvackbyte += acked;
             TRACE("drop so_snd buffer, drop_bytes=%d, len=%d", 
                   acked, so->so_snd.sb_cc);
-				sbdrop(&so->so_snd, acked);
 
+				sbdrop(so->so_snd, acked);
 				tp->snd_una = ti->ti_ack;
 				usn_free_cmbuf(m);
 
@@ -452,17 +455,21 @@ findpcb:
 	         if (so->so_options & SO_DEBUG)
              	tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);
 
-				if (so->so_snd.sb_flags & SB_NOTIFY) {
-               DEBUG("FIXME: sowwakeup notify, write callback");
-					sowwakeup(so);
-            }
-				if (so->so_snd.sb_cc)
+				//if (so->so_snd->sb_flags & SB_NOTIFY) {
+            //   usnet_tcpin_wwakeup(so, USN_TCP_IN, usn_tcpev_sbnotify, 0);
+				//	sowwakeup(so);
+            //}
+
+            // send buffer is available for app thread. 
+            usnet_tcpin_wwakeup(so, USN_TCP_IN, USN_TCPEV_WRITE, 0);
+
+				if (so->so_snd->sb_cc)
 					tcp_output(tp);
 				return;
 			}
 		} else if (ti->ti_ack == tp->snd_una &&
 		    tp->seg_next == (struct tcpiphdr *)tp &&
-		    ti->ti_len <= sbspace(&so->so_rcv)) {
+		    ti->ti_len <= sbspace(so->so_rcv)) {
 
 			// this is a pure, in-sequence data packet
 			// with nothing on the reassembly queue and
@@ -478,14 +485,17 @@ findpcb:
 			m->mlen -= sizeof(struct tcpiphdr)+off-sizeof(struct tcphdr);
 
          TRACE("add data to rcv buf");
-			sbappend(&so->so_rcv, m);
+			sbappend(so->so_rcv, m);
+			sorwakeup(so);
+
+         // new data is available for app threads.
+         usnet_tcpin_rwakeup(so, USN_TCP_IN, USN_TCPEV_READ, m);
 
 	      if (so->so_options & SO_DEBUG) {
             TRACE("tcp trace, so_options=%d", so->so_options);
           	tcp_trace(TA_INPUT, ostate, tp, &g_tcp_saveti, 0);
          }
 
-			sorwakeup(so);
 			tp->t_flags |= TF_DELACK;
 			return;
 		}
@@ -501,7 +511,7 @@ findpcb:
 	// but not less than advertised window.
    {
 	   int win;
-	   win = sbspace(&so->so_rcv);
+	   win = sbspace(so->so_rcv);
 	   if (win < 0)
 	      win = 0;
   	   tp->rcv_wnd = max(win, (int)(tp->rcv_adv - tp->rcv_nxt));
@@ -580,6 +590,10 @@ findpcb:
       TRACE("change tcp state to TCPS_SYN_RECEIVED, state=%d, tp_flags=%d",
             tp->t_state, tp->t_flags);
 		tp->t_state = TCPS_SYN_RECEIVED;
+
+      // tcp event
+      usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_SYN_RECEIVED, 0);
+
 		tp->t_timer[TCPT_KEEP] = TCPTV_KEEP_INIT;
 		dropsocket = 0;		// committed to socket
 		g_tcpstat.tcps_accepts++;
@@ -613,20 +627,22 @@ findpcb:
 			tp->snd_una = ti->ti_ack;
 			if (SEQ_LT(tp->snd_nxt, tp->snd_una))
 				tp->snd_nxt = tp->snd_una;
-		   tp->t_timer[TCPT_REXMT] = 0; // XXX: this is a bug
+		   tp->t_timer[TCPT_REXMT] = 0; 
 		}
-		//tp->t_timer[TCPT_REXMT] = 0;
+		
 		tp->irs = ti->ti_seq;
 		tcp_rcvseqinit(tp);
 		tp->t_flags |= TF_ACKNOW;
-      TRACE("need to ack now, tp flags=%d", tp->t_flags);
+      TRACE("ack now, tp flags=%d", tp->t_flags);
+
       // XXX: remove second test.
 		if (tiflags & TH_ACK /*&& SEQ_GT(tp->snd_una, tp->iss)*/) {
 			g_tcpstat.tcps_connects++;
 			soisconnected(so);
-         TRACE("change tcp state to TCPS_ESTABLISHED, state=%d, tp_flags=%d", 
-               tp->t_state, tp->t_flags);
+         TRACE("change tcp state to TCPS_ESTABLISHED,"
+               " state=%d, tp_flags=%d", tp->t_state, tp->t_flags);
 			tp->t_state = TCPS_ESTABLISHED;
+
 			// Do window scaling on this connection?
 			if ((tp->t_flags & (TF_RCVD_SCALE|TF_REQ_SCALE)) ==
 				(TF_RCVD_SCALE|TF_REQ_SCALE)) {
@@ -640,9 +656,11 @@ findpcb:
 			if (tp->t_rtt)
 				tcp_xmit_timer(tp, tp->t_rtt);
 		} else {
-         TRACE("change tcp state to TCPS_ESTABLISHED, state=%d, tp_flags=%d", 
+         TRACE("change tcp state to TCPS_SYN_RECEIVED, state=%d, tp_flags=%d", 
                tp->t_state, tp->t_flags);
 			tp->t_state = TCPS_SYN_RECEIVED;
+         // tcp event
+         usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_SYN_RECEIVED, 0);
       }
 
 trimthenstep6:
@@ -663,7 +681,6 @@ trimthenstep6:
 		tp->rcv_up = ti->ti_seq;
 		goto step6;
 	}
-
 
 	// States other than LISTEN or SYN_SENT.
 	// First check timestamp, if present.
@@ -723,36 +740,7 @@ trimthenstep6:
          g_tcpstat.tcps_rcvpartduppack++;
          g_tcpstat.tcps_rcvpartdupbyte += ti->ti_len;
       }
-/*
-		if (todrop >= ti->ti_len) {
-			g_tcpstat.tcps_rcvduppack++;
-			g_tcpstat.tcps_rcvdupbyte += ti->ti_len;
 
-			// If segment is just one to the left of the window,
-			// check two special cases:
-			// 1. Don't toss RST in response to 4.2-style keepalive.
-			// 2. If the only thing to drop is a FIN, we can drop
-			//    it, but check the ACK or we will get into FIN
-			//    wars if our FINs crossed (both CLOSING).
-			// In either case, send ACK to resynchronize,
-			// but keep on processing for RST or ACK.
-			if ((tiflags & TH_FIN && todrop == ti->ti_len + 1)) {
-				todrop = ti->ti_len;
-				tiflags &= ~TH_FIN;
-			} else {
-
-				// Handle the case when a bound socket connects
-				// to itself. Allow packets with a SYN and
-				// an ACK to continue with the processing.
-				if (todrop != 0 || (tiflags & TH_ACK) == 0)
-					goto dropafterack;
-			}
-			tp->t_flags |= TF_ACKNOW;
-		} else {
-			g_tcpstat.tcps_rcvpartduppack++;
-			g_tcpstat.tcps_rcvpartdupbyte += todrop;
-		}
-*/
 		m_adj(m, todrop);
 		ti->ti_seq += todrop;
 		ti->ti_len -= todrop;
@@ -766,7 +754,7 @@ trimthenstep6:
 
 	// If new data are received on a connection after the
 	// user processes are gone, then RST the other end.
-	if ((so->so_state & USN_NOFDREF) &&
+	if ((so->so_state & USN_NOFDREF) && 
 	    tp->t_state > TCPS_CLOSE_WAIT && ti->ti_len) {
 		tp = tcp_close(tp);
 		g_tcpstat.tcps_rcvafterclose++;
@@ -801,7 +789,6 @@ trimthenstep6:
 			// and ack.
 			if (tp->rcv_wnd == 0 && ti->ti_seq == tp->rcv_nxt) {
 				tp->t_flags |= TF_ACKNOW;
-            TRACE("need to ack now, tp_flags=%d", tp->t_flags);
 				g_tcpstat.tcps_rcvwinprobe++;
 			} else
 				goto dropafterack;
@@ -812,18 +799,7 @@ trimthenstep6:
 		tiflags &= ~(TH_PUSH|TH_FIN);
 	}
 
-
-	// If last ACK falls within this segment's sequence numbers,
-	// record its timestamp.
-/*   
-	if (ts_present && SEQ_LEQ(ti->ti_seq, tp->last_ack_sent) &&
-	    SEQ_LT(tp->last_ack_sent, ti->ti_seq + ti->ti_len +
-		   ((tiflags & (TH_SYN|TH_FIN)) != 0))) {
-		tp->ts_recent_age = g_tcp_now;
-		tp->ts_recent = ts_val;
-	}
-*/
-   // XXX: check valid timestamp. Replace code above.
+   // check valid timestamp. Replace code above.
    if (ts_present && TSTMP_GEQ(ts_val, tp->ts_recent) &&
          SEQ_LEQ(ti->ti_seq, tp->last_ack_sent) ) {
 		tp->ts_recent_age = g_tcp_now;
@@ -852,6 +828,8 @@ trimthenstep6:
 close:
       DEBUG("change tcp state to TCPS_CLOSED, state=%d", tp->t_state);
 		tp->t_state = TCPS_CLOSED;
+      // tcp event
+      usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_CLOSED, 0);
 		g_tcpstat.tcps_drops++;
 		tp = tcp_close(tp);
 		goto drop;
@@ -885,9 +863,11 @@ close:
 		    SEQ_GT(ti->ti_ack, tp->snd_max))
 			goto dropwithreset;
 		g_tcpstat.tcps_connects++;
-		soisconnected(so);
+
       DEBUG("change tcp state to TCPS_ESTABLISHED, state=%d", tp->t_state);
 		tp->t_state = TCPS_ESTABLISHED;
+		soisconnected(so);
+
 		// Do window scaling?
 		if ((tp->t_flags & (TF_RCVD_SCALE|TF_REQ_SCALE)) ==
 			(TF_RCVD_SCALE|TF_REQ_SCALE)) {
@@ -1021,21 +1001,22 @@ close:
    		tp->snd_cwnd = min(cw + incr, TCP_MAXWIN<<tp->snd_scale);
 		}
 
-		if (acked > so->so_snd.sb_cc) {
-			tp->snd_wnd -= so->so_snd.sb_cc;
-         DEBUG("drop all so_snd buffer, drop_bytes=%d, acked=%d", so->so_snd.sb_cc, acked);
-			sbdrop(&so->so_snd, (int)so->so_snd.sb_cc);
+		if (acked > so->so_snd->sb_cc) {
+			tp->snd_wnd -= so->so_snd->sb_cc;
+         DEBUG("drop all so_snd buffer, drop_bytes=%d, acked=%d", 
+               so->so_snd->sb_cc, acked);
+			sbdrop(so->so_snd, (int)so->so_snd->sb_cc);
 			ourfinisacked = 1;
 		} else {
-         DEBUG("drop so_snd buffer, drop_bytes=%d, len=%d", acked, so->so_snd.sb_cc);
-			sbdrop(&so->so_snd, acked);
+         DEBUG("drop so_snd buffer, drop_bytes=%d, len=%d", acked, so->so_snd->sb_cc);
+			sbdrop(so->so_snd, acked);
 			tp->snd_wnd -= acked;
 			ourfinisacked = 0;
 		}
-		if (so->so_snd.sb_flags & SB_NOTIFY) {
-         DEBUG("FIXME: sowwakeup notify 2");
+		//if (so->so_snd->sb_flags & SB_NOTIFY) {
 			sowwakeup(so);
-      }
+         usnet_tcpin_wwakeup(so, USN_TCP_IN, USN_TCPEV_WRITE, 0);
+      //}
 
 		tp->snd_una = ti->ti_ack;
 		if (SEQ_LT(tp->snd_nxt, tp->snd_una))
@@ -1059,6 +1040,7 @@ close:
 				}
             DEBUG("change tcp state to TCPS_FIN_WAIT_2, state=%d", tp->t_state);
 				tp->t_state = TCPS_FIN_WAIT_2;
+            usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_FIN_WAIT2, 0);
 			}
 			break;
 
@@ -1070,6 +1052,7 @@ close:
 			if (ourfinisacked) {
             DEBUG("change tcp state to TCPS_TIME_WAIT, state=%d", tp->t_state);
 				tp->t_state = TCPS_TIME_WAIT;
+            usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_TIME_WAIT, 0);
 				tcp_canceltimers(tp);
 				tp->t_timer[TCPT_2MSL] = 2 * TCPTV_MSL;
 				soisdisconnected(so);
@@ -1128,7 +1111,7 @@ step6:
 		// random urgent pointers, we'll crash in
 		// soreceive.  It's hard to imagine someone
 		// actually wanting to send this much urgent data.
-		if (ti->ti_urp + so->so_rcv.sb_cc > g_sb_max) {
+		if (ti->ti_urp + so->so_rcv->sb_cc > g_sb_max) {
 			ti->ti_urp = 0;			// XXX
 			tiflags &= ~TH_URG;		// XXX
 			goto dodata;			// XXX
@@ -1148,11 +1131,13 @@ step6:
 		// spec states (in one of two places).
 		if (SEQ_GT(ti->ti_seq+ti->ti_urp, tp->rcv_up)) {
 			tp->rcv_up = ti->ti_seq + ti->ti_urp;
-			so->so_oobmark = so->so_rcv.sb_cc +
+			so->so_oobmark = so->so_rcv->sb_cc +
 			    (tp->rcv_up - tp->rcv_nxt) - 1;
 			if (so->so_oobmark == 0)
 				so->so_state |= USN_RCVATMARK;
 			sohasoutofband(so);
+         // send async event to app threads.
+         usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPEV_OUTOFBOUND, 0);
 			tp->t_oobflags &= ~(TCPOOB_HAVEDATA | TCPOOB_HADDATA);
 		}
 
@@ -1190,7 +1175,7 @@ dodata:							// XXX
 		// Note the amount of data that peer has sent into
 		// our window, in order to estimate the sender's
 		// buffer size.
-		len = so->so_rcv.sb_hiwat - (tp->rcv_adv - tp->rcv_nxt);
+		len = so->so_rcv->sb_hiwat - (tp->rcv_adv - tp->rcv_nxt);
 	} else {
 		usn_free_cmbuf(m);
 		tiflags &= ~TH_FIN;
@@ -1214,6 +1199,7 @@ dodata:							// XXX
          TRACE("change tcp state to TCPS_CLOSE_WAIT, state=%d", tp->t_state);
 			tp->t_state = TCPS_CLOSE_WAIT;
          soewakeup(so, 0);
+         usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_CLOSE_WAIT, 0);
 			break;
 
 		// If still in FIN_WAIT_1 STATE FIN has not been acked so
@@ -1221,6 +1207,7 @@ dodata:							// XXX
 		case TCPS_FIN_WAIT_1:
          TRACE("change tcp state to TCPS_CLOSING, state=%d", tp->t_state);
 			tp->t_state = TCPS_CLOSING;
+         usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_CLOSING, 0);
 			break;
 
 		// In FIN_WAIT_2 state enter the TIME_WAIT state,
@@ -1232,6 +1219,7 @@ dodata:							// XXX
 			tcp_canceltimers(tp);
 			tp->t_timer[TCPT_2MSL] = 2 * TCPTV_MSL;
 			soisdisconnected(so);
+         usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_TIME_WAIT, 0);
 			break;
 
 		// In TIME_WAIT state restart the 2 MSL time_wait timer.
@@ -1573,26 +1561,26 @@ tcp_mss(struct tcpcb *tp, u_int offer)
 #ifdef RTV_SPIPE
 		if ((bufsize = rt->rt_rmx.rmx_sendpipe) == 0)
 #endif
-			bufsize = so->so_snd.sb_hiwat;
+			bufsize = so->so_snd->sb_hiwat;
 		if (bufsize < mss)
 			mss = bufsize;
 		else {
 			bufsize = roundup(bufsize, mss);
 			if (bufsize > g_sb_max)
 				bufsize = g_sb_max;
-			(void)sbreserve(&so->so_snd, bufsize);
+			sbreserve(so->so_snd, bufsize);
 		}
 		tp->t_maxseg = mss;
 
 #ifdef RTV_RPIPE
 		if ((bufsize = rt->rt_rmx.rmx_recvpipe) == 0)
 #endif
-			bufsize = so->so_rcv.sb_hiwat;
+			bufsize = so->so_rcv->sb_hiwat;
 		if (bufsize > mss) {
 			bufsize = roundup(bufsize, mss);
 			if (bufsize > g_sb_max)
 				bufsize = g_sb_max;
-			(void)sbreserve(&so->so_rcv, bufsize);
+			sbreserve(so->so_rcv, bufsize);
 		}
 	}
 	tp->snd_cwnd = mss;

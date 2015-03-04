@@ -107,7 +107,7 @@ again:
 			// because if we don't have any more data
 			// to send then the probe will be the FIN
 			// itself.
-			if (off < so->so_snd.sb_cc)
+			if (off < so->so_snd->sb_cc)
 				flags &= ~TH_FIN;
 			win = 1;
 		} else {
@@ -116,7 +116,7 @@ again:
 		}
 	}
 
-	len = min(so->so_snd.sb_cc, win) - off;
+	len = min(so->so_snd->sb_cc, win) - off;
 
 	if (len < 0) {
 		// If FIN has been sent but not acked,
@@ -137,10 +137,10 @@ again:
 		len = tp->t_maxseg;
 		sendalot = 1;
 	}
-	if (SEQ_LT(tp->snd_nxt + len, tp->snd_una + so->so_snd.sb_cc))
+	if (SEQ_LT(tp->snd_nxt + len, tp->snd_una + so->so_snd->sb_cc))
 		flags &= ~TH_FIN;
 
-	win = sbspace(&so->so_rcv);
+	win = sbspace(so->so_rcv);
 
 	// Sender silly window avoidance.  If connection is idle
 	// and can send all data, a maximum segment,
@@ -154,7 +154,7 @@ again:
 		if (len == tp->t_maxseg)
 			goto send;
 		if ((idle || tp->t_flags & TF_NODELAY) &&
-		    len + off >= so->so_snd.sb_cc)
+		    len + off >= so->so_snd->sb_cc)
 			goto send;
 		if (tp->t_force)
 			goto send;
@@ -187,9 +187,9 @@ again:
       if (oldwin >> tp->rcv_scale == (adv + oldwin) >>tp->rcv_scale )
          goto dontupdate;
 		if (adv >= (long) (2 * tp->t_maxseg) &&
-          (adv >= (long)(so->so_rcv.sb_hiwat / 4 ) ||
-           win <= (long)(so->so_rcv.sb_hiwat / 8 ) ||
-           so->so_rcv.sb_hiwat <= 8 * tp->t_maxseg) )
+          (adv >= (long)(so->so_rcv->sb_hiwat / 4 ) ||
+           win <= (long)(so->so_rcv->sb_hiwat / 8 ) ||
+           so->so_rcv->sb_hiwat <= 8 * tp->t_maxseg) )
 			goto send;
 		//if (2 * adv >= (long) so->so_rcv.sb_hiwat)
 		//   goto send;
@@ -230,7 +230,7 @@ dontupdate:
 	// If nothing happens soon, send when timer expires:
 	// if window is nonzero, transmit what we can,
 	// otherwise force out a byte.
-	if (so->so_snd.sb_cc && tp->t_timer[TCPT_REXMT] == 0 &&
+	if (so->so_snd->sb_cc && tp->t_timer[TCPT_REXMT] == 0 &&
 	    tp->t_timer[TCPT_PERSIST] == 0) {
 		tp->t_rxtshift = 0;
 		tcp_setpersist(tp);
@@ -330,10 +330,10 @@ send:
       // TODO: two cases below are really different?
       DEBUG("tcp copying data, len=%d, mlen=%d", len, m->mlen);
 		if (len <= m->mlen) {
-			usn_copy_mbuf(so->so_snd.sb_mb, off, len, mtod(m, caddr_t));
+			usn_copy_mbuf(so->so_snd->sb_mb, off, len, mtod(m, caddr_t));
 			m->mlen = len;
 		} else {
-			m->next = usn_copy_data(so->so_snd.sb_mb, off, len);
+			m->next = usn_copy_data(so->so_snd->sb_mb, off, len);
 			if (m->next == 0) {
 				usn_free_mbuf(m);
 				error = ENOBUFS;
@@ -347,7 +347,7 @@ send:
 		// (This will keep happy those implementations which only
 		// give data to the user when a buffer fills or
 		// a PUSH comes in.)
-		if (off + len == so->so_snd.sb_cc)
+		if (off + len == so->so_snd->sb_cc)
 			flags |= TH_PUSH;
 	} else {
 		if (tp->t_flags & TF_ACKNOW)
@@ -404,7 +404,7 @@ send:
 
 	// Calculate receive window.  Don't shrink window,
 	// but avoid silly window syndrome.
-	if (win < (long)(so->so_rcv.sb_hiwat / 4) && win < (long)tp->t_maxseg)
+	if (win < (long)(so->so_rcv->sb_hiwat / 4) && win < (long)tp->t_maxseg)
 		win = 0;
 	if (win > (long)TCP_MAXWIN << tp->rcv_scale)
 		win = (long)TCP_MAXWIN << tp->rcv_scale;

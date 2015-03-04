@@ -176,7 +176,7 @@ tcp_usrreq(struct usn_socket *so, int req,
       }
       /* Compute window scaling to request.  */
       while (tp->request_r_scale < TCP_MAX_WINSHIFT &&
-          (TCP_MAXWIN << tp->request_r_scale) < so->so_rcv.sb_hiwat)
+          (TCP_MAXWIN << tp->request_r_scale) < so->so_rcv->sb_hiwat)
          tp->request_r_scale++;
       soisconnecting(so);
       g_tcpstat.tcps_connattempt++;
@@ -241,7 +241,7 @@ tcp_usrreq(struct usn_socket *so, int req,
     */
    case PRU_SEND:
       DEBUG("send tcp packet");
-      sbappend(&so->so_snd, m);
+      sbappend(so->so_snd, m);
       error = tcp_output(tp);
       break;
    /*
@@ -276,7 +276,7 @@ tcp_usrreq(struct usn_socket *so, int req,
       break;
 
    case PRU_SENDOOB:
-      if (sbspace(&so->so_snd) < -512) {
+      if (sbspace(so->so_snd) < -512) {
          usn_free_mbuf(m);
          error = ENOBUFS;
          break;
@@ -289,8 +289,8 @@ tcp_usrreq(struct usn_socket *so, int req,
        * of data past the urgent section.
        * Otherwise, snd_up should be one lower.
        */
-      sbappend(&so->so_snd, m);
-      tp->snd_up = tp->snd_una + so->so_snd.sb_cc;
+      sbappend(so->so_snd, m);
+      tp->snd_up = tp->snd_una + so->so_snd->sb_cc;
       tp->t_force = 1;
       error = tcp_output(tp);
       tp->t_force = 0;
@@ -413,7 +413,7 @@ tcp_attach( struct usn_socket *so)
 	struct inpcb *inp;
 	int error;
 
-	if (so->so_snd.sb_hiwat == 0 || so->so_rcv.sb_hiwat == 0) {
+	if (so->so_snd->sb_hiwat == 0 || so->so_rcv->sb_hiwat == 0) {
 		error = soreserve(so, tcp_sendspace, tcp_recvspace);
 		if (error)
 			return (error);
@@ -454,7 +454,7 @@ tcp_disconnect(struct tcpcb *tp)
 		tp = tcp_drop(tp, 0);
 	else {
 		soisdisconnecting(so);
-		sbflush(&so->so_rcv);
+		sbflush(so->so_rcv);
 		tp = tcp_usrclosed(tp);
 		if (tp)
 			tcp_output(tp);

@@ -84,11 +84,14 @@ struct usn_glob_conf {
 extern struct usn_glob_conf g_config;
 
 // XXX: better to read config from file?
-int 
+int32
 usnet_parse_conf(int argc, char *argv[]);
 
-int
+int32
 usnet_setup(int argc, char *argv[]);
+
+int32 
+usnet_setup_process();
 
 struct nm_desc*
 usnet_init( struct nm_desc *nmd, const char *dev_name, u_int flags);
@@ -102,6 +105,10 @@ usnet_init_internal();
 // Start handling loop
 void
 usnet_dispatch();
+
+void
+usnet_dispatch_process();
+
 
 // ip stack handling
 struct usn_sockaddr;

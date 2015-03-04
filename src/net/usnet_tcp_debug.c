@@ -153,8 +153,8 @@ tcp_trace( short act, short ostate, struct tcpcb *tp,
 	    tp->snd_wl1, tp->snd_wl2, tp->snd_wnd);
 
    so = tp->t_inpcb->inp_socket;
-   ERROR("rcv_buff: %u",so->so_rcv.sb_mb ? usn_get_mbuflen(so->so_rcv.sb_mb) : 0);
-   ERROR("snd_buff: %u",so->so_snd.sb_mb ? usn_get_mbuflen(so->so_snd.sb_mb) : 0);
+   ERROR("rcv_buff: %u",so->so_rcv->sb_mb ? usn_get_mbuflen(so->so_rcv->sb_mb) : 0);
+   ERROR("snd_buff: %u",so->so_snd->sb_mb ? usn_get_mbuflen(so->so_snd->sb_mb) : 0);
 }
 
 void tcp_print(struct tcpiphdr *ti)

@@ -34,11 +34,15 @@
  */
 
 #include "usnet_socket.h"
-#include "usnet_socket.h"
 #include "usnet_common.h"
 #include "usnet_log.h"
+#include "usnet_msg.h"
+#include "usnet_socket_evhandler.h"
+#include "usnet_socket_cache.h"
 
 u_long g_sb_max;
+u_long g_tcp_sendspace = 1024*8;
+u_long g_tcp_recvspace = 1024*8;
 /*
  * Allot mbufs to a sockbuf.
  * Attempt to scale mbmax so that mbcnt doesn't become limiting
@@ -100,19 +104,19 @@ int
 soreserve(struct usn_socket *so, u_long sndcc, u_long rcvcc)
 {
 
-   if (sbreserve(&so->so_snd, sndcc) == 0)
+   if (sbreserve(so->so_snd, sndcc) == 0)
       goto bad;
-   if (sbreserve(&so->so_rcv, rcvcc) == 0)
+   if (sbreserve(so->so_rcv, rcvcc) == 0)
       goto bad2;
-   if (so->so_rcv.sb_lowat == 0)
-      so->so_rcv.sb_lowat = 1;
-   if (so->so_snd.sb_lowat == 0)
-      so->so_snd.sb_lowat = MCLBYTES;
-   if (so->so_snd.sb_lowat > so->so_snd.sb_hiwat)
-      so->so_snd.sb_lowat = so->so_snd.sb_hiwat;
+   if (so->so_rcv->sb_lowat == 0)
+      so->so_rcv->sb_lowat = 1;
+   if (so->so_snd->sb_lowat == 0)
+      so->so_snd->sb_lowat = MCLBYTES;
+   if (so->so_snd->sb_lowat > so->so_snd->sb_hiwat)
+      so->so_snd->sb_lowat = so->so_snd->sb_hiwat;
    return (0);
 bad2:
-   sbrelease(&so->so_snd);
+   sbrelease(so->so_snd);
 bad:
    return -1;// no buffer available: (ENOBUFS);
 }
@@ -163,10 +167,10 @@ soisdisconnected(struct usn_socket *so)
    so->so_state &= ~(USN_ISCONNECTING|USN_ISCONNECTED|USN_ISDISCONNECTING);
    so->so_state |= (USN_CANTRCVMORE|USN_CANTSENDMORE);
 
-   // FIXME: fix callbacks
    //wakeup((caddr_t)&so->so_timeo);
    //sowwakeup(so);
    //sorwakeup(so);
+   usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPEV_DISCONNECTED, 0);
 }
 
 /*
@@ -189,6 +193,7 @@ sonewconn1(struct usn_socket *head, int connstatus)
 
    DEBUG("new socket, glen=%d, q0len=%d, qlimit=%d", 
          head->so_qlen, head->so_q0len, head->so_qlimit); 
+
    if (head->so_qlen + head->so_q0len > 3 * head->so_qlimit / 2) {
       DEBUG("full queue, arg1=%d, arg2=%d", 
             head->so_qlen + head->so_q0len, 3 * head->so_qlimit / 2);
@@ -196,26 +201,38 @@ sonewconn1(struct usn_socket *head, int connstatus)
    }
 
    //MALLOC(so, struct socket *, sizeof(*so), M_SOCKET, M_DONTWAIT);
-   so = (struct usn_socket*)usn_get_buf(0, sizeof(*so));
+   //so = (struct usn_socket*)usn_get_buf(0, sizeof(*so));
+   so = usnet_get_socket(&g_socket_cache);
+
    if (so == NULL) {
       DEBUG("failed to allocate mem");
       return ((struct usn_socket *)0);
    }
 
-   bzero((caddr_t)so, sizeof(*so));
+   //bzero((caddr_t)so, sizeof(*so));
    so->so_domain = head->so_domain;
    so->so_type = head->so_type;
    so->so_options = head->so_options &~ SO_ACCEPTCONN;
    so->so_linger = head->so_linger;
    so->so_state = head->so_state | USN_NOFDREF; // no fd yet
-   // FIXME: do we need?
-   //so->so_proto = head->so_proto;
+   //so->so_proto = head->so_proto; // XXX: do we need?
    so->so_timeo = head->so_timeo;
    so->so_pgid = head->so_pgid;
    so->so_usrreq = head->so_usrreq;
    so->so_appcb = head->so_appcb;
 
-   soreserve(so, head->so_snd.sb_hiwat, head->so_rcv.sb_hiwat);
+   i = so->so_fd;
+   so->so_rcv = usnet_get_sockbuf(&g_sorcv_cache, so->so_fd);
+   so->so_snd = usnet_get_sockbuf(&g_sosnd_cache, so->so_fd);
+
+   DEBUG("so_rcv=%p, so_snd=%p", so->so_rcv, so->so_snd);
+
+   if ( so->so_rcv == NULL || so->so_snd == NULL ) {
+      usnet_free_socket(&g_socket_cache, so->so_fd);
+      goto release;
+   }
+
+   soreserve(so, g_tcp_sendspace, g_tcp_recvspace);
 
    soqinsque(head, so, soqueue);
 
@@ -224,7 +241,7 @@ sonewconn1(struct usn_socket *head, int connstatus)
       soqremque(so, soqueue);
       usn_free_buf((u_char*)so);
       DEBUG("failed to attach new socket");
-      return ((struct usn_socket *)0);
+      goto release;
    }
    if (connstatus) {
       // FIXME: callbacks
@@ -233,19 +250,16 @@ sonewconn1(struct usn_socket *head, int connstatus)
       so->so_state |= connstatus;
    }
 
-   DEBUG("new connect has been created");
-   for ( i=1; i<MAX_SOCKETS; i++) {
-      if ( g_fds[i] == 0 ) break;
-   }
-   if ( i >= MAX_SOCKETS ) {
-      DEBUG("ERROR: fd not available");
-      return 0;
-   }
-   g_fds[i] = so;
-   so->so_fd = i;
    so->so_state = head->so_state & ~USN_NOFDREF;
 
    return (so);
+
+release:
+   // release so_rcv, so_rnd.
+   usnet_free_sockbuf(&g_sorcv_cache, i);
+   usnet_free_sockbuf(&g_sosnd_cache, i);
+   // FIXME: release fd.
+   return ((struct usn_socket *)0);
 }
 
 /*     
@@ -383,14 +397,14 @@ soisconnected(struct usn_socket *so)
       DEBUG("tcp connection is established");
       soqinsque(head, so, 1);
       sorwakeup(so);
-      // FIXME: implement it.
+      usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_ESTABLISHED, 0);
       //sorwakeup(head);
       //wakeup((caddr_t)&head->so_timeo);
    } else {
-      // FIXME: implement it.
       //wakeup((caddr_t)&so->so_timeo);
       sorwakeup(so);
       sowwakeup(so);
+      usnet_tcpin_ewakeup(so, USN_TCP_IN, USN_TCPST_ESTABLISHED, 0);
    }
 }
 
@@ -506,11 +520,6 @@ sbappendrecord(struct sockbuf *sb, usn_mbuf_t *m0)
 void    
 sbappend(struct sockbuf *sb, usn_mbuf_t *m)
 {
-/*
-   sb->sb_mb = m;
-   sb->sb_cc += m->mlen;
-   return;
-*/
    usn_mbuf_t *n;
    if (m == 0)
       return;
@@ -551,7 +560,7 @@ sbflush(struct sockbuf *sb)
 void
 sorflush(struct usn_socket *so)
 {
-   struct sockbuf *sb = &so->so_rcv;
+   struct sockbuf *sb = so->so_rcv;
    //struct protosw *pr = so->so_proto;
    struct sockbuf asb;
    //int s;
@@ -581,9 +590,9 @@ sofree(struct usn_socket *so)
          DEBUG("panic: sofree dq");
       so->so_head = 0; 
    }
-   sbrelease(&so->so_snd);
+   sbrelease(so->so_snd);
    sorflush(so);
-   usn_free_buf((u_char*)so);
+   usnet_free_socket(&g_socket_cache, so->so_fd);
    return 0;
 }
 

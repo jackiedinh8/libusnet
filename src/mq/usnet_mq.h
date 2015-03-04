@@ -89,36 +89,38 @@ struct usn_shmmq
 {
 	usn_shm_t* _shm;
    //usn_semlock_t* _sem; //lock for multi-threaded apps
-   int      _fd;          //fifo file, used for notification.
-   unsigned _wait_sec;
-   unsigned _wait_usec;
-   unsigned _count;
+   u_int32        _fd;          //fifo file, used for notification.
+   u_int32        _wait_sec;
+   u_int32        _wait_usec;
+   u_int32        _count;
    usn_adapctl_t *_adaptive_ctrl;
 
-	unsigned* _head;
-	unsigned* _tail;
-	char*     _block;
-	unsigned  _block_size;
-   unsigned* _enqueued_msg_cnt;
-   unsigned* _dequeued_msg_cnt;
+	u_int32*       _head;
+	u_int32*       _tail;
+	char*          _block;
+	u_int32        _block_size;
+   u_int32*       _enqueued_msg_cnt;
+   u_int32*       _dequeued_msg_cnt;
 #define C_HEAD_SIZE 8
 }__attribute__((packed));
 
 void 
 print_shmmq(usn_shmmq_t *mq);
 
-int usnet_init_shmmq(usn_shmmq_t *mq, char* fifo_path, 
-      unsigned wait_sec, unsigned wait_usec, 
-      int shm_key, unsigned shm_size);
+int32 usnet_init_shmmq(usn_shmmq_t *mq, char* fifo_path, 
+      u_int32 wait_sec, u_int32 wait_usec, 
+      int32 shm_key, u_int32 shm_size);
 
 void 
 usnet_release_shmmq(usn_shmmq_t *mq);
 
-int usnet_shmmq_enqueue(usn_shmmq_t *mq, const time_t uiCurTime, 
-      const void* data, unsigned data_len, unsigned flow);
+int32 
+usnet_shmmq_enqueue(usn_shmmq_t *mq, const time_t uiCurTime, 
+      const void* data, u_int32 data_len, u_int32 flow);
 
-int usnet_shmmq_dequeue(usn_shmmq_t *mq, void* buf, 
-      unsigned buf_size, unsigned *data_len, unsigned *flow);
+int32 
+usnet_shmmq_dequeue(usn_shmmq_t *mq, void* buf, 
+      u_int32 buf_size, u_int32 *data_len, u_int32 *flow);
 
 void usnet_shmmq_clear_flag();
 	
