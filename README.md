@@ -11,6 +11,8 @@ As far as we can benchmark it, libusnet can improve network performance by 10-30
 - use cache-friendly data structures to reduce algorithm costs.
 - use design of mTCP project.
 
+We believe that further improvements are quite possible, for example, multi-processes to support multi-queue cards, improving wait-free buffers. 
+
 libusnet provide epoll-like interface, you can look at sample code in directory 'sample'.
 
 To use libusnet, you need to install netmap [1] and following instructions:
