@@ -11,7 +11,7 @@ As far as we can benchmark it, libusnet can improve network performance by 10-30
 - use cache-friendly data structures to reduce algorithm costs.
 - use design of mTCP project.
 
-We believe that further improvements are quite possible, for example, multi-processes to support multi-queue cards, improving wait-free buffers. 
+We believe that further improvements are quite possible, for example, multi-processes to support multi-queue cards, improving wait-free buffers. Currently, libusnet supports FreeBSD 10 and later.
 
 libusnet provide epoll-like interface, you can look at sample code in directory 'sample'.
 
