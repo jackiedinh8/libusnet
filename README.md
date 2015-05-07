@@ -7,7 +7,7 @@ We believe that further improvements are still possible, since we could add more
 
 Here are summaries of techniques we have used:
 
-- wait-free algorithm and data structures which are shared among processes without using lock mechanism. 
+- wait-free algorithm and data structures which are shared among processes. 
 - multi-processes: one network process for packet processing, one application process for application tasks. 
 - zero-copy technique: reducing number of copying buffers as mush as we can. 
 - use cache-friendly data structure to reduce algorithm costs.
