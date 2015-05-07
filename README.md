@@ -25,8 +25,6 @@ FreeBSD instructions: since recent FreeBSD distributions already include netmap,
   + sample applications are in the examples/ directory in this archive,
     or in src/tools/tools/netmap/ in FreeBSD distributions
 
-On Linux, one needs to install it as kernel module.
-
 Linux instructions: on Linux, netmap is an out-of-tree module, so you need to compile it from these sources. The Makefile in the LINUX/ directory will also let you patch device driver sources and build some netmap-enabled device drivers.
   
   + make sure you have kernel sources matching your installed kernel
