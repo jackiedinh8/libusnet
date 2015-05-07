@@ -63,34 +63,8 @@ Linux instructions:
         make SRC=/a/b/c/linux-sources-A.B/ KSRC=/a/b/c/linux-headers-A.B/
 
 Sample application:
-
-{
-   ctx = usnet_setup("em1");
    
-   if ( ctx == 0 )
-      return 1;
-
-   fd = usnet_socket(ctx,AF_INET,SOCK_STREAM,0);
-   
-   if ( fd < 0 ) 
-      exit(0);
-
-   local.sin_family = AF_INET;
-   
-   local.sin_port = ntohs(80);
-   
-   local.sin_addr.s_addr = inet_addr("10.10.10.2"); 
-
-   ret = usnet_bind(ctx, fd, (struct sockaddr*)&local, sizeof(local));
-   if ( ret < 0 ) 
-      exit(0);
-
-   ret = usnet_listen(ctx,fd, 5); 
-   if ( ret < 0 ) 
-      exit(0);
-
    epollfd = usnet_epoll_create(ctx,10);
-   
    while (1) {
    
       nfds = usnet_epoll_wait(ctx,epollfd,events,MAX_EVENTS,5000);
@@ -113,7 +87,7 @@ Sample application:
          }
       }
    }
-}
+
 
 
 For more details, see example at https://github.com/jackiedinh8/libusnet/blob/master/src/sample/echosvr.c
