@@ -67,6 +67,11 @@ usnet_so_setempty(const void *arg)
 void
 usnet_socket_init(usn_context_t *ctx, int create)
 {
+
+   ctx->socket_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
+   if ( ctx->socket_cache == NULL )
+      return;
+
    usnet_cache_init(ctx->socket_cache, 0x33338, 10, 100, sizeof(usn_socket_t),create,
                     usnet_so_eq, usnet_so_key, usnet_so_isempty, usnet_so_setempty);
    return;

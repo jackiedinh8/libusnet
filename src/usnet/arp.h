@@ -28,8 +28,8 @@
  * @(#)arp.h
  */
 
-#ifndef USNET_ARP_H_
-#define USNET_ARP_H_
+#ifndef _USNET_ARP_H_
+#define _USNET_ARP_H_
 
 #include <stdint.h>
 
@@ -39,12 +39,12 @@
 #define MAX_ARP_ENTRIES 1024
 
 enum usn_arp_op_enum {
-   ARPOP_REQUEST    = 1,  /* request to resolve address */
-   ARPOP_REPLY      = 2,  /* response to previous request */
-   ARPOP_REVREQUEST = 3,  /* request protocol address given hardware */
-   ARPOP_REVREPLY   = 4,  /* response giving protocol address */
-   ARPOP_INVREQUEST = 8,  /* request to identify peer */
-   ARPOP_INVREPLY   = 9   /* response identifying peer */
+   USN_ARPOP_REQUEST    = 1,  /* request to resolve address */
+   USN_ARPOP_REPLY      = 2,  /* response to previous request */
+   USN_ARPOP_REVREQUEST = 3,  /* request protocol address given hardware */
+   USN_ARPOP_REVREPLY   = 4,  /* response giving protocol address */
+   USN_ARPOP_INVREQUEST = 8,  /* request to identify peer */
+   USN_ARPOP_INVREPLY   = 9   /* response identifying peer */
 };
 
 typedef struct usn_arphdr usn_arphdr_t;

@@ -31,10 +31,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <malloc_np.h>
 #include <unistd.h>
 #include <assert.h>
 #include <sys/mman.h>
+#ifdef __FreeBSD__
+#include <malloc_np.h>
+#endif //__FreeBSD__
 
 #include "mempool.h"
 

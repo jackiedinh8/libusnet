@@ -110,7 +110,7 @@ usnet_arp_request(usn_context_t *ctx, uint32_t ip)
    // TODO: save pending packet to send later.
 
    memset(haddr, 0xFF, ETH_LEN);
-   usnet_arp_output(ctx, ARPOP_REQUEST,ip, haddr);
+   usnet_arp_output(ctx, USN_ARPOP_REQUEST,ip, haddr);
 
    return 0;
 }
@@ -124,7 +124,7 @@ usnet_arp_req_handler(usn_context_t *ctx, usn_arphdr_t *arph)
    if ( entry == 0 )
       usnet_register_arp(ctx, arph->ar_spa, arph->ar_sha);
 
-   usnet_arp_output(ctx, ARPOP_REPLY, arph->ar_spa, arph->ar_sha);  
+   usnet_arp_output(ctx, USN_ARPOP_REPLY, arph->ar_spa, arph->ar_sha);  
 
    return 0;
 }
@@ -159,10 +159,10 @@ usnet_arp_input(usn_context_t *ctx, unsigned char *buf, int len)
    dump_buffer(ctx, (char*)buf, len, "arp");
 
    switch (ntohs(arph->ar_op)) {
-      case ARPOP_REQUEST:
+      case USN_ARPOP_REQUEST:
          usnet_arp_req_handler(ctx, arph);
          break;
-      case ARPOP_REPLY:
+      case USN_ARPOP_REPLY:
          usnet_arp_reply_handler(ctx, arph);
          break;
       default:

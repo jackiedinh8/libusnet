@@ -48,7 +48,7 @@
 void
 usnet_tcp_init(usn_context_t *ctx)
 {
-	DEBUG(ctx->log, "tcp_init");
+   DEBUG(ctx->log, "tcp_init");
    usnet_tcb_init(ctx);
 }
 
@@ -1111,7 +1111,7 @@ usnet_tcp_input(usn_context_t *ctx, usn_iphdr_t *iph, int iplen)
    if ( cur_tcb->state >= TCPS_SYN_RECEIVED ) {
       if ( (ret = usnet_validate_seq(ctx, cur_tcb, 
                tcph, seq, ack_seq, payloadlen)) < 0 ) {
-         ERROR(ctx->log,"wrong sequence, fd=%u, ret=%d, seq=%u, payloadlen=%u,"
+         WARN(ctx->log,"wrong sequence, fd=%u, ret=%d, seq=%u, payloadlen=%u,"
                         " new_seq=%u, rcv_nxt=%u, rcv_wnd=%u", cur_tcb->fd, ret, 
                         seq,payloadlen,seq+payloadlen,cur_tcb->rcv_nxt,cur_tcb->rcvvar->rcv_wnd);
          return -3;

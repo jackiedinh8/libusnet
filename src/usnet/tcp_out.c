@@ -477,8 +477,8 @@ usnet_add_control_list(usn_context_t *ctx, usn_tcb_t *cur_tcb)
          cur_tcb->sndvar->on_control_list = 1;
          TAILQ_INSERT_TAIL(&ctx->control_list, cur_tcb, sndvar->control_link);
          ctx->control_list_cnt++;
-         DEBUG(ctx->log,"added to control list, fd=%u, cnt=%d, ret=%d", 
-             cur_tcb->fd, ctx->control_list_cnt, ret);
+         DEBUG(ctx->log,"added to control list, fd=%u, cnt=%d", 
+             cur_tcb->fd, ctx->control_list_cnt);
       }
 #if TRY_SEND_BEFORE_QUEUE
    } else {

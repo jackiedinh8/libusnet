@@ -95,6 +95,11 @@ usnet_tcb_setempty(const void *arg)
 void
 usnet_tcb_init(usn_context_t *ctx)
 {
+
+   ctx->tcb_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
+   if ( ctx->tcb_cache == NULL )
+      return;
+
    usnet_cache_init(ctx->tcb_cache, 0x33339, 10, 100, sizeof(usn_tcb_t),1,
                     usnet_tcb_eq, usnet_tcb_key, usnet_tcb_isempty, usnet_tcb_setempty);
    return;

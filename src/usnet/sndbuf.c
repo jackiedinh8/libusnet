@@ -70,6 +70,11 @@ usnet_sb_setempty(const void *arg)
 void
 usnet_sendbuf_init(usn_context_t *ctx, int default_size, int create)
 {
+
+   ctx->sndbuf_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
+   if ( ctx->sndbuf_cache == NULL )
+      return;
+
    usnet_cache_init(ctx->sndbuf_cache, 0x33341, 10, 100, 
                     sizeof(usn_sendbuf_t) + default_size,create,
                     usnet_sb_eq, usnet_sb_key, usnet_sb_isempty, usnet_sb_setempty);

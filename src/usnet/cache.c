@@ -50,7 +50,7 @@ usnet_hashbase_init(usn_hashbase_t *base)
     if ( base == NULL )
        return;
 
-    base->hb_base = malloc(sizeof(uint32_t)*base->hb_time);
+    base->hb_base = (uint32_t*)malloc(sizeof(uint32_t)*(base->hb_time));
     if ( base->hb_base == NULL ) {
        printf("malloc failed"); 
        return;

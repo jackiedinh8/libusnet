@@ -195,6 +195,13 @@ usnet_ep_setempty(const void* arg)
 void
 usnet_epoll_init(usn_context_t *ctx)
 {
+
+   if ( ctx->epoll_cache == NULL ) 
+      ctx->epoll_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
+
+   if ( ctx->epoll_cache == NULL )
+      return;
+
    usnet_cache_init(ctx->epoll_cache, 0x33344, 10, 100, 
                     sizeof(usn_epoll_fd_t),1,
                     usnet_ep_eq, usnet_ep_key, usnet_ep_isempty, usnet_ep_setempty);

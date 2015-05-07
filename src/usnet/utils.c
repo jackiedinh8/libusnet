@@ -33,8 +33,17 @@
 #include <sys/socket.h>
 #include <net/ethernet.h>
 #include <ifaddrs.h>
-#include <net/if_dl.h>
 
+#ifdef __FreeBSD__
+#include <net/if_dl.h>
+#endif //__FreeBSD__
+
+#ifdef linux
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#define AF_LINK AF_PACKET
+#endif
 
 #include "utils.h"
 #include "core.h"
@@ -252,6 +261,7 @@ usnet_tcp_statestr_new(int state)
 int
 usnet_net_hwaddr()
 {
+#ifdef __FreeBSD__
    struct ifaddrs *ifap, *ifaptr;
    unsigned char *ptr;
 
@@ -267,11 +277,16 @@ usnet_net_hwaddr()
       freeifaddrs(ifap);
       return ifaptr != 0;
    } 
+#endif //__FreeBSD__
+
+#ifdef linux
+#endif //linux
 
    return 0;
 }
 
 
+#ifdef __FreeBSD__
 void
 usnet_get_network_info(usn_context_t *ctx, const char *ifname, int len)
 {
@@ -280,7 +295,6 @@ usnet_get_network_info(usn_context_t *ctx, const char *ifname, int len)
    struct ifreq ifr;
    struct ifaddrs *ifap, *ifaptr;
    unsigned char *ptr;
-
 
    ifcfg = (struct usn_ifnet *)malloc(sizeof(*ifcfg));
    if ( ifcfg == 0 )
@@ -294,15 +308,6 @@ usnet_get_network_info(usn_context_t *ctx, const char *ifname, int len)
    if ( rsock < 0 )
       goto out;
 
-#ifdef _USE_LINUX_
-   memset(&ifr,0,sizeof(ifr));
-   strncpy(ifr.ifr_name,ifcfg->iface,3);
-   if ( ioctl(rsock,SIOCGIFHWADDR,&ifr) == -1 ) {
-      goto out;
-   }
-
-   memcpy(&ifcfg->hwa,&ifr.ifr_hwaddr.sa_data,6);
-#else
    if ( getifaddrs(&ifap) == 0 ) {
       for ( ifaptr=ifap; ifaptr!=0; ifaptr=(ifaptr)->ifa_next ) {
          if ( !strcmp((ifaptr)->ifa_name,ifname) && ((ifaptr->ifa_addr)->sa_family == AF_LINK) ) {
@@ -316,7 +321,6 @@ usnet_get_network_info(usn_context_t *ctx, const char *ifname, int len)
       freeifaddrs(ifap);
    } 
 
-#endif
    memset(&ifr,0,sizeof(ifr));
    strncpy(ifr.ifr_name,ifcfg->iface,3);
    if ( ioctl(rsock,SIOCGIFADDR,&ifr) == -1 ) {
@@ -351,5 +355,99 @@ usnet_get_network_info(usn_context_t *ctx, const char *ifname, int len)
 out:   
    close(rsock);
 }
+#endif //__FreeBSD__
 
+
+#ifdef linux
+#define _GNU_SOURCE     /* To get defns of NI_MAXSERV and NI_MAXHOST */
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <ifaddrs.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <linux/if_link.h>
+
+void
+print_buffer(char *p, int len, const char *prefix)
+{
+   char buf[128];
+   int i, j, i0;
+
+   if ( p == 0 ) {
+      printf("null pointer\n");
+      return;
+   }
+   /* get the length in ASCII of the length of the packet. */
+
+   /* hexdump routine */
+   for (i = 0; i < len; ) {
+      memset(buf, sizeof(buf), ' ');
+      sprintf(buf, "%5d: ", i);
+      i0 = i; 
+      for (j=0; j < 16 && i < len; i++, j++) 
+         sprintf(buf+7+j*3, "%02x ", (uint8_t)(p[i]));
+      i = i0;
+      for (j=0; j < 16 && i < len; i++, j++) 
+         sprintf(buf+7+j + 48, "%c",
+            isprint(p[i]) ? p[i] : '.');
+      printf("%s: %s\n", prefix, buf);
+   }
+}
+
+void
+usnet_get_network_info(usn_context_t *ctx, const char *ifname, int len)
+{
+   struct usn_ifnet *ifcfg;
+   struct ifaddrs *ifaddr, *ifa;
+   int family, n;
+   //int s;
+   //char host[NI_MAXHOST];
+
+   ifcfg = (struct usn_ifnet *)malloc(sizeof(*ifcfg));
+   if ( ifcfg == 0 )
+     return; 
+   memset(ifcfg,0,sizeof(*ifcfg));
+   ctx->ifnet = ifcfg;
+   strncpy(ifcfg->iface,ifname,6); 
+
+   if (getifaddrs(&ifaddr) == -1) {
+       perror("getifaddrs");
+       exit(EXIT_FAILURE);
+   }
+
+   /* Walk through linked list, maintaining head pointer so we
+      can free list later */
+
+   for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+       if (ifa->ifa_addr == NULL)
+           continue;
+
+       family = ifa->ifa_addr->sa_family;
+       if ( strcmp(ifa->ifa_name,ifname) )
+          continue;
+
+       /* For an AF_INET interface address, display the address */
+       if (family == AF_INET) {
+           struct sockaddr_in *addr = (struct sockaddr_in*)ifa->ifa_addr;
+           memcpy(&ifcfg->addr,&addr->sin_addr.s_addr,4);
+
+           addr = (struct sockaddr_in*)ifa->ifa_broadaddr;
+           memcpy(&ifcfg->bcast,&addr->sin_addr.s_addr,4);
+
+           addr = (struct sockaddr_in*)ifa->ifa_netmask;
+           memcpy(&ifcfg->nmask,&addr->sin_addr.s_addr,4);
+
+       } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
+           struct sockaddr *sdl = (struct sockaddr*)ifa->ifa_addr;
+           uint8_t *ptr = (uint8_t*)sdl->sa_data;
+           ptr += 10;
+           memcpy(ifcfg->hwa, ptr,6);
+       }
+   }
+
+   freeifaddrs(ifaddr);
+}
+#endif //linux
 

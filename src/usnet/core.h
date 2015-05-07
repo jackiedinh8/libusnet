@@ -34,9 +34,31 @@
 #include <net/if.h>
 #include <time.h>
 #include <sys/param.h>
-#include <sys/cpuset.h>
 #include <sys/queue.h>
 #include <netinet/in.h>
+
+#ifdef linux
+#define cpuset_t cpu_set_t
+#define ifr_flagshigh  ifr_flags        /* only the low 16 bits here */
+#define IFF_PPROMISC   IFF_PROMISC      /* IFF_PPROMISC does not exist */
+#include <linux/ethtool.h>
+#include <linux/sockios.h>
+
+#define CLOCK_REALTIME_PRECISE CLOCK_REALTIME
+#include <netinet/ether.h>      /* ether_aton */
+#include <linux/if_packet.h>    /* sockaddr_ll */
+#endif  /* linux */
+
+#ifdef __FreeBSD__
+#include <sys/endian.h> /* le64toh */
+#include <machine/param.h>
+
+#include <pthread_np.h> /* pthread w/ affinity */
+#include <sys/cpuset.h> /* cpu_set */
+#include <net/if_dl.h>  /* LLADDR */
+#endif  /* __FreeBSD__ */
+
+
 
 #define NETMAP_WITH_LIBS
 #include <net/netmap.h>

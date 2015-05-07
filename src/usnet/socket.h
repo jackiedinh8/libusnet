@@ -61,14 +61,14 @@ struct usn_socket {
 /* so_options */
 #define  SO_BIND        0x0001       /* bound to local address */
 #define  SO_ACCEPT      0x0002      /* socket has had listen() */
-#define  SO_REUSEADDR   0x0004      /* allow local address reuse */
-#define  SO_KEEPALIVE   0x0008      /* keep connections alive */
-#define  SO_DONTROUTE   0x0010      /* just use interface addresses */
-#define  SO_BROADCAST   0x0020      /* permit sending of broadcast msgs */
-#define  SO_USELOOPBACK 0x0040      /* bypass hardware when possible */
-#define  SO_LINGER      0x0080      /* linger on close if data present */
-#define  SO_OOBINLINE   0x0100      /* leave received OOB data in line */
-#define  SO_REUSEPORT   0x0200      /* allow local address & port reuse */
+//#define  SO_REUSEADDR   0x0004      /* allow local address reuse */
+//#define  SO_KEEPALIVE   0x0008      /* keep connections alive */
+//#define  SO_DONTROUTE   0x0010      /* just use interface addresses */
+//#define  SO_BROADCAST   0x0020      /* permit sending of broadcast msgs */
+//#define  SO_USELOOPBACK 0x0040      /* bypass hardware when possible */
+//#define  SO_LINGER      0x0080      /* linger on close if data present */
+//#define  SO_OOBINLINE   0x0100      /* leave received OOB data in line */
+//#define  SO_REUSEPORT   0x0200      /* allow local address & port reuse */
 
 /* so_state */
 #define  SO_NOFDREF           0x001 /* no file table ref any more */

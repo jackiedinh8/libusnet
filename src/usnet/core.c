@@ -88,7 +88,6 @@ usnet_netmap_init(usn_context_t *ctx, uint32_t flags)
    ctx->nm_buf->len = 2048;
 #endif //USE_NETMAP_BUF 
 
-
    // TODO: config them.
    ctx->ifnet->npkts = 0;
    ctx->ifnet->burst = 1024;
@@ -133,12 +132,13 @@ system_ncpus(void)
 int
 setaffinity(usn_context_t *ctx, int i)
 {
+/*
    cpuset_t cpumask;
 
    if (i == -1)
       return 0;
 
-   /* Set thread affinity affinity.*/
+   // Set thread affinity affinity
    CPU_ZERO(&cpumask);
    CPU_SET(i, &cpumask);
 
@@ -147,6 +147,7 @@ setaffinity(usn_context_t *ctx, int i)
       DEBUG(ctx->log,"Unable to set affinity: %s", strerror(errno));
       return 1;
    }
+*/
    return 0;
 }
 
@@ -157,6 +158,11 @@ usnet_recv_frame(usn_context_t *ctx, struct netmap_ring *ring, int limit, int du
    struct netmap_slot *slot;
    unsigned char      *p; 
    int                 cur, rx, n;
+   //struct timeval total,start,end;
+   //static struct timeval time;
+   //static int cnt = 0;
+   //if ( cnt == 0 )
+   //   memset(&time,0,sizeof(time));
 
    cur = ring->cur;
    n = nm_ring_space(ring);
@@ -167,9 +173,17 @@ usnet_recv_frame(usn_context_t *ctx, struct netmap_ring *ring, int limit, int du
       p = (unsigned char*)NETMAP_BUF(ring, slot->buf_idx);
 
       DEBUG(ctx->log, "frame received, len=%d", slot->len);
-      //dump_buffer(ctx, (char*)p, slot->len, "eth");
 
+      //gettimeofday(&start,0); cnt++;
       usnet_eth_input(ctx, p, slot->len);
+      //gettimeofday(&end,0); 
+      //timersub(&end,&start,&total);
+      //timeradd(&total,&time,&time);
+      //if ( cnt == 50 ) {
+      //   ERROR(ctx->log,"process time: %llu(s) %llu(ms),cnt=%u", 
+      //                time.tv_sec, time.tv_usec,cnt);
+      //   cnt = 0;
+      //}
       cur = nm_ring_next(ring, cur);
    }   
    ring->head = ring->cur = cur; 
@@ -183,7 +197,8 @@ void usnet_worker_setup(usn_context_t *ctx)
    if ( ctx->log == NULL )
       printf("[worker]: cannot open log\n");
 
-   LOG(ctx->log, USN_DEBUG, "log init");
+
+   DEBUG(ctx->log, "log init");
 
    sleep(2); //wait for network setup in deamon process.
    usnet_epoll_init(ctx);
@@ -468,7 +483,7 @@ usnet_dispatch_net(usn_context_t *ctx)
        fds[1].events = POLLIN;
        fds[1].revents = 0;
 
-       ret = poll(fds, 2, 5000);
+       ret = poll(fds, 2, 1);
        if (ret <= 0 ) {
           usnet_check_rtm_timeout(ctx,512);
           usnet_check_timewait_expire(ctx,512);
@@ -524,10 +539,13 @@ usnet_net_setup(usn_context_t *ctx)
    if ( ctx->log == 0 )
       exit(0);
 
+
    setaffinity(ctx, 0);
 
    ERROR(ctx->log,"interface info, ifname:%s,addr=%x,bcast=%x,nmask=%x",
          ctx->ifnet->iface,ctx->ifnet->addr,ctx->ifnet->bcast,ctx->ifnet->nmask);
+
+
    ptr = (unsigned char*)ctx->ifnet->hwa;
    ERROR(ctx->log,"hwaddr: %02x:%02x:%02x:%02x:%02x:%02x\n", 
                   *ptr,*(ptr+1),*(ptr+2),*(ptr+3),*(ptr+4),*(ptr+5));
@@ -558,25 +576,6 @@ usnet_create_context()
 
    memset(ctx, 0, sizeof(ctx));
 
-   ctx->tcb_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
-   if ( ctx->tcb_cache == NULL )
-      return 0;
-
-   ctx->socket_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
-   if ( ctx->socket_cache == NULL )
-      return 0;
-
-   ctx->ringbuf_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
-   if ( ctx->ringbuf_cache == NULL )
-      return 0;
-
-   ctx->sndbuf_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
-   if ( ctx->sndbuf_cache == NULL )
-      return 0;
-
-   ctx->epoll_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
-   if ( ctx->epoll_cache == NULL )
-      return 0;
 
    ctx->g_fd = 1;
    ctx->timewait_list_cnt = 0;
@@ -607,7 +606,6 @@ usnet_setup(const char* ifname)
       return 0;
 
    usnet_get_network_info(ctx,ifname,strlen(ifname));
-
 
    pid = fork();
    if ( pid < 0 ) {

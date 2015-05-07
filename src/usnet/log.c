@@ -33,7 +33,6 @@
 #include <stdarg.h>
 #include <time.h>
 #include <fcntl.h>
-#include <pthread_np.h>
 
 #include "log.h"
 
@@ -45,7 +44,7 @@ usnet_log_init(const char* filename, int level, uint32_t rotate_num, long size_l
     //uint32_t position;
     usn_log_t *log;
 
-    log = (usn_log_t*) malloc(sizeof(log));
+    log = (usn_log_t*) malloc(sizeof(*log));
     if ( log == NULL )
        return NULL;
     memset(log, 0, sizeof(log));
@@ -141,18 +140,19 @@ void usnet_log(usn_log_t *log, int level, const char* sourcefilename, int line, 
         }
         */
         char dest[1024] = {0};
+        //time_t curTime;
+        //char* date;
         va_list argptr;
         va_start(argptr, msg);
         vsprintf(dest, msg, argptr);
         va_end(argptr);
         //check level, if higher, then log the msg ( set time of msg arrival, human readable).
 
-        time_t curTime = time(0);
-        char* date = asctime(localtime(&curTime));
-        date[strlen(date) - 1] = 0;
-        dprintf(log->_fd, "[%d]%s:%d[%s]: %s\n", pthread_getthreadid_np(), sourcefilename, line, level_str[level], dest);
+        //curTime = time(0);
+        //date = asctime(localtime(&curTime));
+        //date[strlen(date) - 1] = 0;
 
-        //_file << sourcefilename << ":" <<  line << "[" << level_str[level] << "]:"  << dest << std::endl;
+        dprintf(log->_fd, "%s:%d[%s]: %s\n", sourcefilename, line, level_str[level], dest);
     }
 }
 

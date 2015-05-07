@@ -28,9 +28,10 @@
  * @(#)cache.h
  */
 
-
 #ifndef _USNET_CACHE_H_
 #define _USNET_CACHE_H_
+
+#include <stdint.h>
 
 typedef int (*eqfn) (const void *, const void *);
 typedef int (*keyfn) (const void *);

@@ -31,6 +31,7 @@
 #define _USNET_BUF_H_
 
 #include <sys/time.h>
+#include <stdint.h>
 
 #include "types.h"
 

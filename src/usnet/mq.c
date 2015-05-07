@@ -36,6 +36,10 @@
 #include <errno.h>
 #include <string.h>
 
+#ifdef linux
+#include <time.h>
+#endif
+
 #include "mq.h"
 #include "log.h"
 

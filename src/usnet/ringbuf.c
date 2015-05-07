@@ -70,6 +70,11 @@ usnet_rb_setempty(const void *arg)
 void 
 usnet_ringbuf_init(usn_context_t *ctx, int default_size, int create_mp)
 {
+
+   ctx->ringbuf_cache = (usn_hashbase_t*)malloc(sizeof(usn_hashbase_t));
+   if ( ctx->ringbuf_cache == NULL )
+      return;
+
    usnet_cache_init(ctx->ringbuf_cache, 0x33340, 10, 100, sizeof(usn_ringbuf_t) + default_size,1,
                     usnet_rb_eq, usnet_rb_key, usnet_rb_isempty, usnet_rb_setempty);
 
