@@ -63,7 +63,7 @@ Linux instructions:
         make SRC=/a/b/c/linux-sources-A.B/ KSRC=/a/b/c/linux-headers-A.B/
 
 Sample application:
-   
+   ```C
    epollfd = usnet_epoll_create(ctx,10);
 
    while (1) {
@@ -88,6 +88,7 @@ Sample application:
          }
       }
    }
+   ```
 
 
 
