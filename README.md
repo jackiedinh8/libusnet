@@ -42,26 +42,21 @@ Linux instructions:
 
   + build kernel modules and sample applications:
     If kernel sources are in /foo//linux-A.B.C/ , then you should do
-
+```
 	cd netmap/LINUX
-	
 	//build kernel modules
-	
 	make NODRIVERS=1 KSRC=/foo/linux-A.B.C/	# only netmap
-	
 	make KSRC=/a/b/c/linux-A.B.C/		# netmap+device drivers
-	
 	//build sample applications
-	
 	make KSRC=/a/b/c/linux-A.B.C/ apps	# builds sample applications
-
+```
     You can omit KSRC if your kernel sources are in a standard place.
 
   + if you use distribution packages, source may not contain headers (e.g., on
     debian systems). Use
-
+```
         make SRC=/a/b/c/linux-sources-A.B/ KSRC=/a/b/c/linux-headers-A.B/
-
+```
 Sample application:
    ```C
    epollfd = usnet_epoll_create(ctx,10);
