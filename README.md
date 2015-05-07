@@ -13,7 +13,7 @@ Here are summaries of techniques we have used:
 - use cache-friendly data structure to reduce algorithm costs.
 - design of mTcp.
 
-To use libusnet, one needs netmap to be installed. Netmap is delivered with FreeBSD release since version 10. 
+To use libusnet, one needs netmap to be installed. 
 
 FreeBSD instructions: since recent FreeBSD distributions already include netmap, you only need build the new kernel or modules as below:
 
