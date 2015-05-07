@@ -48,6 +48,14 @@ You can omit KSRC if your kernel sources are in a standard place.
 ```
         make SRC=/a/b/c/linux-sources-A.B/ KSRC=/a/b/c/linux-headers-A.B/
 ```
+
+Libusnet installation instructions:
+```
+autoreconf -i
+./configure
+make
+make install
+```
 Sample application:
    ```C
    epollfd = usnet_epoll_create(ctx,10);
