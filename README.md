@@ -16,6 +16,7 @@ Here are summaries of techniques we have used:
 To use libusnet, one needs netmap to be installed. Netmap is delivered with FreeBSD release since version 10. 
 
 FreeBSD instructions:
+
   Since recent FreeBSD distributions already include netmap, you only
   need build the new kernel or modules as below:
 
@@ -23,16 +24,19 @@ FreeBSD instructions:
     This will include the netmap module and netmap support in the device
     drivers.  Alternatively, you can build standalone modules
     (netmap, ixgbe, em, lem, re, igb)
+
   + sample applications are in the examples/ directory in this archive,
     or in src/tools/tools/netmap/ in FreeBSD distributions
 
 On Linux, one needs to install it as kernel module.
 
 Linux instructions:
+
   On Linux, netmap is an out-of-tree module, so you need to compile it
   from these sources. The Makefile in the LINUX/ directory will also
   let you patch device driver sources and build some netmap-enabled
   device drivers.
+  
   + make sure you have kernel sources matching your installed kernel
     (headers only suffice, if you want NETMAP/VALE but no drivers)
 
@@ -42,7 +46,9 @@ Linux instructions:
 	cd netmap/LINUX
 	
 	//build kernel modules
+	
 	make NODRIVERS=1 KSRC=/foo/linux-A.B.C/	# only netmap
+	
 	make KSRC=/a/b/c/linux-A.B.C/		# netmap+device drivers
 	
 	//build sample applications
@@ -57,16 +63,22 @@ Linux instructions:
         make SRC=/a/b/c/linux-sources-A.B/ KSRC=/a/b/c/linux-headers-A.B/
 
 Sample application:
+
+{
    ctx = usnet_setup("em1");
+   
    if ( ctx == 0 )
       return 1;
 
    fd = usnet_socket(ctx,AF_INET,SOCK_STREAM,0);
+   
    if ( fd < 0 ) 
       exit(0);
 
    local.sin_family = AF_INET;
-   local.sin_port = ntohs(35355);
+   
+   local.sin_port = ntohs(80);
+   
    local.sin_addr.s_addr = inet_addr("10.10.10.2"); 
 
    ret = usnet_bind(ctx, fd, (struct sockaddr*)&local, sizeof(local));
@@ -78,8 +90,11 @@ Sample application:
       exit(0);
 
    epollfd = usnet_epoll_create(ctx,10);
+   
    while (1) {
+   
       nfds = usnet_epoll_wait(ctx,epollfd,events,MAX_EVENTS,5000);
+      
       if ( nfds <= 0 ) 
          continue;
       
@@ -98,6 +113,7 @@ Sample application:
          }
       }
    }
+}
 
 
 For more details, see example at https://github.com/jackiedinh8/libusnet/blob/master/src/sample/echosvr.c
