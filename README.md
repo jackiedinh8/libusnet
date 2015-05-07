@@ -15,10 +15,7 @@ Here are summaries of techniques we have used:
 
 To use libusnet, one needs netmap to be installed. Netmap is delivered with FreeBSD release since version 10. 
 
-FreeBSD instructions:
-
-  Since recent FreeBSD distributions already include netmap, you only
-  need build the new kernel or modules as below:
+FreeBSD instructions: since recent FreeBSD distributions already include netmap, you only need build the new kernel or modules as below:
 
   + add 'device netmap' to your kernel config file and rebuild a kernel.
     This will include the netmap module and netmap support in the device
@@ -30,12 +27,7 @@ FreeBSD instructions:
 
 On Linux, one needs to install it as kernel module.
 
-Linux instructions:
-
-  On Linux, netmap is an out-of-tree module, so you need to compile it
-  from these sources. The Makefile in the LINUX/ directory will also
-  let you patch device driver sources and build some netmap-enabled
-  device drivers.
+Linux instructions: on Linux, netmap is an out-of-tree module, so you need to compile it from these sources. The Makefile in the LINUX/ directory will also let you patch device driver sources and build some netmap-enabled device drivers.
   
   + make sure you have kernel sources matching your installed kernel
     (headers only suffice, if you want NETMAP/VALE but no drivers)
@@ -50,7 +42,8 @@ Linux instructions:
 	//build sample applications
 	make KSRC=/a/b/c/linux-A.B.C/ apps	# builds sample applications
 ```
-    You can omit KSRC if your kernel sources are in a standard place.
+
+You can omit KSRC if your kernel sources are in a standard place.
 
   + if you use distribution packages, source may not contain headers (e.g., on
     debian systems). Use
